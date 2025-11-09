@@ -6,7 +6,7 @@ const Footer = () => {
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
         <div className="grid md:grid-cols-3 gap-8 mb-8">
           <div>
-            <Logo className="h-16 md:h-20 w-auto mb-4 text-white filter" ariaLabel="Legacy Builders" />
+            <Logo className="h-24 md:h-32 lg:h-40 w-auto mx-auto text-white" ariaLabel="Legacy Builders" houseColor="#ffffff" />
             <p className="text-white/80">
               Building exceptional homes and creating lasting value across Texas.
             </p>
