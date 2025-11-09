@@ -26,8 +26,8 @@ const Footer = () => {
             <h3 className="text-lg font-bold mb-4 text-gold">Contact</h3>
             <ul className="space-y-2 text-white/80">
               <li>Texas, USA</li>
-              <li>(555) 123-4567</li>
-              <li>info@legacybuilders.com</li>
+              <li>(214) 997-3361</li>
+              <li><a href="mailto:contact@lbinvestmentsllc.com">contact@lbinvestmentsllc.com</a></li>
             </ul>
           </div>
         </div>
