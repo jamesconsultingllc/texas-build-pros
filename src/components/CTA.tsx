@@ -21,14 +21,14 @@ const CTA = () => {
               <Phone className="h-6 w-6 text-gold flex-shrink-0" />
               <div className="text-left">
                 <div className="text-sm text-muted-foreground">Call Us</div>
-                <div className="text-lg font-semibold text-foreground">(555) 123-4567</div>
+                <div className="text-lg font-semibold text-foreground">(214) 997-3361</div>
               </div>
             </div>
             <div className="flex items-center justify-center gap-3 p-6 bg-muted rounded-lg">
               <Mail className="h-6 w-6 text-gold flex-shrink-0" />
               <div className="text-left">
                 <div className="text-sm text-muted-foreground">Email Us</div>
-                <div className="text-lg font-semibold text-foreground">info@legacybuilders.com</div>
+                <div className="text-lg font-semibold text-foreground"><a href="mailto:contact@lbinvestmentsllc.com">contact@lbinvestmentsllc.com</a></div>
               </div>
             </div>
           </div>
