@@ -1,5 +1,5 @@
-import { Button } from "@/components/ui/button";
-import { ArrowRight, Mail, Phone } from "lucide-react";
+import { Mail, Phone } from "lucide-react";
+import ContactForm from "./ContactForm";
 
 const CTA = () => {
   return (
@@ -14,14 +14,9 @@ const CTA = () => {
             let's discuss how we can bring your vision to life.
           </p>
 
-          <div className="flex flex-col sm:flex-row gap-6 justify-center items-center mb-12">
-            <Button size="lg" className="bg-gold hover:bg-gold-light text-white text-lg h-14 px-8">
-              Schedule Consultation
-              <ArrowRight className="ml-2 h-5 w-5" />
-            </Button>
-          </div>
+          <ContactForm />
 
-          <div className="grid sm:grid-cols-2 gap-6 max-w-2xl mx-auto">
+          <div className="grid sm:grid-cols-2 gap-6 max-w-2xl mx-auto mt-12">
             <div className="flex items-center justify-center gap-3 p-6 bg-muted rounded-lg">
               <Phone className="h-6 w-6 text-gold flex-shrink-0" />
               <div className="text-left">
