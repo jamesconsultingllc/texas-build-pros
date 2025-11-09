@@ -3,13 +3,13 @@ import ContactForm from "./ContactForm";
 
 const CTA = () => {
   return (
-    <section id="contact" className="py-24 bg-background">
+    <section id="contact" className="py-6 md:py-24 bg-background">
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
         <div className="max-w-4xl mx-auto text-center">
-          <h2 className="text-4xl md:text-5xl font-bold text-foreground mb-6">
+          <h2 className="text-4xl md:text-5xl font-bold text-foreground mb-4 md:mb-6">
             Ready to Build Your Legacy?
           </h2>
-          <p className="text-xl text-muted-foreground mb-12 max-w-2xl mx-auto">
+          <p className="text-xl text-muted-foreground mb-8 md:mb-12 max-w-2xl mx-auto">
             Whether you're investing in your next property or building your dream home, 
             let's discuss how we can bring your vision to life.
           </p>
