@@ -3,11 +3,11 @@ import Logo from "@/components/Logo";
 const Footer = () => {
   return (
     <footer className="bg-navy text-white py-12">
-      <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="grid md:grid-cols-3 gap-8 mb-8">
+      <div className="container mx-auto px-4 sm:px-6 lg:px-8 max-w-[80%]">
+        <div className="grid md:grid-cols-3 gap-4 mb-8 text-center">
           <div>
-            <Logo className="h-40 w-full md:h-40 lg:h-40 w-auto mx-auto text-white" ariaLabel="Legacy Builders" houseColor="#ffffff" />
-            <p className="text-white/80">
+            <Logo className="h-40 w-full md:h-40 lg:h-40 w-auto mx-auto text-white -mt-4" ariaLabel="Legacy Builders" houseColor="#ffffff" />
+            <p className="text-white/80 -mt-4">
               Building exceptional homes and creating lasting value across Texas.
             </p>
           </div>
@@ -25,7 +25,6 @@ const Footer = () => {
           <div>
             <h3 className="text-lg font-bold mb-4 text-gold">Contact</h3>
             <ul className="space-y-2 text-white/80">
-              <li>Texas, USA</li>
               <li>(214) 997-3361</li>
               <li><a href="mailto:contact@lbinvestmentsllc.com">contact@lbinvestmentsllc.com</a></li>
             </ul>
