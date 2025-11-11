@@ -4,7 +4,7 @@ import { ArrowRight } from "lucide-react";
 
 const Hero = () => {
   return (
-    <section className="relative min-h-screen flex items-center justify-center overflow-hidden">
+    <section className="relative min-h-[50vh] flex items-center justify-center overflow-hidden">
       <div 
         className="absolute inset-0 z-0"
         style={{
@@ -16,7 +16,7 @@ const Hero = () => {
         <div className="absolute inset-0 bg-navy/70"></div>
       </div>
       
-      <div className="relative z-10 container mx-auto px-4 sm:px-6 lg:px-8 py-32">
+      <div className="relative z-10 container mx-auto px-4 sm:px-6 lg:px-8 py-16">
         <div className="max-w-4xl">
           <h1 className="text-5xl md:text-7xl font-bold text-white mb-6">
             Building Legacies.
