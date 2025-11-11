@@ -9,12 +9,10 @@ const CTA = () => {
           <h2 className="text-4xl md:text-5xl font-bold text-foreground mb-4 md:mb-6">
             Ready to Build Your Legacy?
           </h2>
-          <p className="text-xl text-muted-foreground mb-8 md:mb-12 max-w-2xl mx-auto">
+          <p className="text-xl text-muted-foreground mb-1 max-w-2xl mx-auto">
             Whether you're investing in your next property or building your dream home, 
             let's discuss how we can bring your vision to life.
           </p>
-
-          <ContactForm />
 
           <div className="grid sm:grid-cols-2 gap-6 max-w-2xl mx-auto mt-12">
             <div className="flex items-center justify-center gap-3 p-6 bg-muted rounded-lg">
@@ -32,6 +30,10 @@ const CTA = () => {
               </div>
             </div>
           </div>
+          
+          <ContactForm />
+
+          
         </div>
       </div>
     </section>

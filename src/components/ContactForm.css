@@ -1,0 +1,302 @@
+/**
+ * ContactForm.css
+ * 
+ * Pure CSS styling for HubSpot embedded forms to match the site's design system.
+ * Uses standard CSS selectors (no Tailwind) to style form elements.
+ * 
+ * Color mappings:
+ * - Navy (primary): #001A33 (hsl(205, 100%, 10%))
+ * - Gold (accent): #B8943F (hsl(43, 60%, 45%))
+ * - Gold light (hover): #D4B05F (hsl(43, 70%, 60%))
+ * - Input border: #E5E9ED (hsl(214.3, 31.8%, 91.4%))
+ * - Background: #FFFFFF
+ * - Text: #001A33
+ * - Muted text: #5A6B7A (hsl(205, 30%, 40%))
+ */
+
+.contact-form-wrapper {
+  width: 100%;
+  font-family: inherit;
+}
+
+/* Form container */
+.contact-form-wrapper .hs-form,
+.contact-form-wrapper form {
+  font-family: inherit;
+  width: 100%;
+  color: #001A33;
+}
+
+/* Form fields container */
+.contact-form-wrapper .hs-form-field {
+  margin-bottom: 1rem;
+}
+
+/* Labels */
+.contact-form-wrapper .hs-form-field label,
+.contact-form-wrapper label {
+  display: block;
+  color: #001A33;
+  font-weight: 500;
+  font-size: 1rem;
+  margin-bottom: 0.5rem;
+  font-family: inherit;
+}
+
+/* Text inputs */
+.contact-form-wrapper .hs-form-field input[type="text"],
+.contact-form-wrapper .hs-form-field input[type="email"],
+.contact-form-wrapper .hs-form-field input[type="tel"],
+.contact-form-wrapper .hs-form-field input[type="number"],
+.contact-form-wrapper .hs-form-field input[type="url"],
+.contact-form-wrapper .hs-form-field input[type="date"],
+.contact-form-wrapper .hs-form-field input[type="datetime-local"],
+.contact-form-wrapper input[type="text"],
+.contact-form-wrapper input[type="email"],
+.contact-form-wrapper input[type="tel"],
+.contact-form-wrapper input[type="number"] {
+  width: 100%;
+  padding: 0.75rem;
+  font-size: 1rem;
+  font-family: inherit;
+  color: #001A33;
+  background-color: #FFFFFF;
+  border: 1px solid #E5E9ED;
+  border-radius: 0.5rem;
+  box-sizing: border-box;
+  transition: all 0.2s ease-in-out;
+}
+
+/* Textarea */
+.contact-form-wrapper .hs-form-field textarea,
+.contact-form-wrapper textarea {
+  width: 100%;
+  padding: 0.75rem;
+  font-size: 1rem;
+  font-family: inherit;
+  color: #001A33;
+  background-color: #FFFFFF;
+  border: 1px solid #E5E9ED;
+  border-radius: 0.5rem;
+  box-sizing: border-box;
+  transition: all 0.2s ease-in-out;
+  resize: vertical;
+  min-height: 100px;
+}
+
+/* Select dropdown */
+.contact-form-wrapper .hs-form-field select,
+.contact-form-wrapper select {
+  width: 100%;
+  padding: 0.75rem;
+  padding-right: 2.5rem;
+  font-size: 1rem;
+  font-family: inherit;
+  color: #001A33;
+  background-color: #FFFFFF;
+  border: 1px solid #E5E9ED;
+  border-radius: 0.5rem;
+  box-sizing: border-box;
+  transition: all 0.2s ease-in-out;
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23001A33' d='M6 9L1 4h10z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.75rem center;
+}
+
+/* Input focus states */
+.contact-form-wrapper .hs-form-field input:focus,
+.contact-form-wrapper .hs-form-field textarea:focus,
+.contact-form-wrapper .hs-form-field select:focus,
+.contact-form-wrapper input:focus,
+.contact-form-wrapper textarea:focus,
+.contact-form-wrapper select:focus {
+  outline: none;
+  border-color: #B8943F;
+  box-shadow: 0 0 0 3px rgba(184, 148, 63, 0.1);
+}
+
+/* Input hover states */
+.contact-form-wrapper .hs-form-field input:hover,
+.contact-form-wrapper .hs-form-field textarea:hover,
+.contact-form-wrapper .hs-form-field select:hover,
+.contact-form-wrapper input:hover,
+.contact-form-wrapper textarea:hover,
+.contact-form-wrapper select:hover {
+  border-color: #001A33;
+}
+
+/* Submit button */
+.contact-form-wrapper .hs-button,
+.contact-form-wrapper input[type="submit"],
+.contact-form-wrapper button[type="submit"],
+.contact-form-wrapper .hs_submit {
+  background-color: #B8943F;
+  color: #FFFFFF;
+  border: none;
+  border-radius: 0.5rem;
+  padding: 0.75rem 2rem;
+  font-size: 1rem;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  transition: all 0.2s ease-in-out;
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  width: auto;
+  display: inline-block;
+}
+
+/* Button hover state */
+.contact-form-wrapper .hs-button:hover,
+.contact-form-wrapper input[type="submit"]:hover,
+.contact-form-wrapper button[type="submit"]:hover,
+.contact-form-wrapper .hs_submit:hover {
+  background-color: #D4B05F;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+}
+
+/* Button focus state */
+.contact-form-wrapper .hs-button:focus,
+.contact-form-wrapper input[type="submit"]:focus,
+.contact-form-wrapper button[type="submit"]:focus,
+.contact-form-wrapper .hs_submit:focus {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(0, 26, 51, 0.1);
+}
+
+/* Button active state */
+.contact-form-wrapper .hs-button:active,
+.contact-form-wrapper input[type="submit"]:active,
+.contact-form-wrapper button[type="submit"]:active,
+.contact-form-wrapper .hs_submit:active {
+  background-color: #B8943F;
+}
+
+/* Button disabled state */
+.contact-form-wrapper .hs-button:disabled,
+.contact-form-wrapper input[type="submit"]:disabled,
+.contact-form-wrapper button[type="submit"]:disabled,
+.contact-form-wrapper .hs_submit:disabled {
+  background-color: #5A6B7A;
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+/* Error messages */
+.contact-form-wrapper .hs-error-msgs,
+.contact-form-wrapper .hs-error-msgs label,
+.contact-form-wrapper .hs-main-font-element {
+  color: #DC2626;
+  font-size: 0.875rem;
+  margin-top: 0.25rem;
+  font-family: inherit;
+}
+
+/* Error input states */
+.contact-form-wrapper .hs-form-field input.hs-input-error,
+.contact-form-wrapper .hs-form-field textarea.hs-input-error,
+.contact-form-wrapper .hs-form-field select.hs-input-error,
+.contact-form-wrapper input.hs-input-error,
+.contact-form-wrapper textarea.hs-input-error,
+.contact-form-wrapper select.hs-input-error {
+  border-color: #DC2626;
+  background-color: #FEF2F2;
+}
+
+/* Success message */
+.contact-form-wrapper .hs-form-success {
+  color: #16A34A;
+  background-color: #F0FDF4;
+  padding: 1rem;
+  border-radius: 0.5rem;
+  margin-top: 1rem;
+  font-family: inherit;
+}
+
+/* Required field indicator */
+.contact-form-wrapper .hs-form-field .hs-form-required {
+  color: #DC2626;
+}
+
+/* Optional field indicator */
+.contact-form-wrapper .hs-form-field .hs-form-optional {
+  color: #5A6B7A;
+  font-size: 0.875rem;
+}
+
+/* Checkbox and radio buttons */
+.contact-form-wrapper .hs-form-field input[type="checkbox"],
+.contact-form-wrapper .hs-form-field input[type="radio"],
+.contact-form-wrapper input[type="checkbox"],
+.contact-form-wrapper input[type="radio"] {
+  accent-color: #B8943F;
+  width: auto;
+  margin-right: 0.5rem;
+  cursor: pointer;
+}
+
+/* Form title */
+.contact-form-wrapper .hs-form-title,
+.contact-form-wrapper h2,
+.contact-form-wrapper h3 {
+  color: #001A33;
+  font-weight: 700;
+  font-size: 1.5rem;
+  margin-bottom: 1rem;
+  font-family: inherit;
+}
+
+/* Form description */
+.contact-form-wrapper .hs-form-description,
+.contact-form-wrapper p {
+  color: #5A6B7A;
+  font-size: 1rem;
+  margin-bottom: 1.5rem;
+  font-family: inherit;
+}
+
+/* Legal/consent text */
+.contact-form-wrapper .legal-consent-container,
+.contact-form-wrapper .hs-legal-consent {
+  color: #5A6B7A;
+  font-size: 0.875rem;
+  font-family: inherit;
+}
+
+.contact-form-wrapper .legal-consent-container a,
+.contact-form-wrapper .hs-legal-consent a {
+  color: #B8943F;
+  text-decoration: underline;
+}
+
+.contact-form-wrapper .legal-consent-container a:hover,
+.contact-form-wrapper .hs-legal-consent a:hover {
+  color: #D4B05F;
+}
+
+/* Helper text */
+.contact-form-wrapper .hs-form-field .hs-form-helper {
+  color: #5A6B7A;
+  font-size: 0.875rem;
+  margin-top: 0.25rem;
+  font-family: inherit;
+}
+
+/* Field group styling */
+.contact-form-wrapper .hs-form-field-group {
+  margin-bottom: 1.5rem;
+}
+
+/* Multi-column layouts */
+.contact-form-wrapper .hs-form-field-group .hs-form-field {
+  margin-bottom: 1rem;
+}
+
+/* Placeholder text */
+.contact-form-wrapper input::placeholder,
+.contact-form-wrapper textarea::placeholder {
+  color: #5A6B7A;
+  opacity: 0.7;
+}
