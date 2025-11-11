@@ -5,9 +5,9 @@ import interiorImage from "@/assets/interior.jpg";
 
 const Services = () => {
   return (
-    <section id="services" className="py-24 bg-muted">
+    <section id="services" className="py-10 bg-muted">
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="text-center mb-16">
+        <div className="text-center mb-10">
           <h2 className="text-4xl md:text-5xl font-bold text-foreground mb-4">
             What We Do
           </h2>
@@ -16,7 +16,7 @@ const Services = () => {
           </p>
         </div>
 
-        <div className="grid md:grid-cols-2 gap-8 mb-16">
+        <div className="grid md:grid-cols-2 gap-8 mb-10">
           <Card className="overflow-hidden border-2 hover:border-gold transition-colors">
             <div 
               className="h-64 bg-cover bg-center"

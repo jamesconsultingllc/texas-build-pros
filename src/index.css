@@ -2,6 +2,64 @@
 @tailwind components;
 @tailwind utilities;
 
+/* HubSpot Form CSS Variables - Pure CSS (no Tailwind dependencies) */
+/* These variables are read by HubSpot forms to customize appearance */
+/* Format: --hsf-{component}__{property} */
+:root {
+  /* Global styles */
+  --hsf-global__font-family: inherit;
+  --hsf-global__font-size: 1rem;
+  --hsf-global__color: #001A33; /* Navy text */
+  
+  /* Background styles */
+  --hsf-background__background-color: #FFFFFF;
+  
+  /* Button styles */
+  --hsf-button__font-family: inherit;
+  --hsf-button__font-size: 1rem;
+  --hsf-button__font-weight: 600;
+  --hsf-button__background-color: #B8943F; /* Gold */
+  --hsf-button__color: #FFFFFF; /* White text */
+  --hsf-button__border-radius: 0.5rem;
+  --hsf-button__padding: 0.75rem 2rem;
+  
+  /* Field input styles */
+  --hsf-field-input__font-family: inherit;
+  --hsf-field-input__font-size: 1rem;
+  --hsf-field-input__color: #001A33; /* Navy text */
+  --hsf-field-input__background-color: #FFFFFF;
+  --hsf-field-input__border-color: #E5E9ED; /* Light gray */
+  --hsf-field-input__border-radius: 0.5rem;
+  --hsf-field-input__border-width: 1px;
+  --hsf-field-input__padding: 0.75rem;
+  
+  /* Field label styles */
+  --hsf-field-label__font-family: inherit;
+  --hsf-field-label__font-size: 1rem;
+  --hsf-field-label__font-weight: 500;
+  --hsf-field-label__color: #001A33; /* Navy text */
+  
+  /* Field textarea styles */
+  --hsf-field-textarea__font-family: inherit;
+  --hsf-field-textarea__font-size: 1rem;
+  --hsf-field-textarea__color: #001A33; /* Navy text */
+  --hsf-field-textarea__background-color: #FFFFFF;
+  --hsf-field-textarea__border-color: #E5E9ED; /* Light gray */
+  --hsf-field-textarea__border-radius: 0.5rem;
+  --hsf-field-textarea__border-width: 1px;
+  --hsf-field-textarea__padding: 0.75rem;
+  
+  /* Field select styles */
+  --hsf-field-select__font-family: inherit;
+  --hsf-field-select__font-size: 1rem;
+  --hsf-field-select__color: #001A33; /* Navy text */
+  --hsf-field-select__background-color: #FFFFFF;
+  --hsf-field-select__border-color: #E5E9ED; /* Light gray */
+  --hsf-field-select__border-radius: 0.5rem;
+  --hsf-field-select__border-width: 1px;
+  --hsf-field-select__padding: 0.75rem;
+}
+
 /* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
 All colors MUST be HSL.
 */
