@@ -1,7 +1,6 @@
 import { useState } from "react";
-import { Button } from "@/components/ui/button";
 import Logo from "@/components/Logo";
-import { Menu, X } from "lucide-react";
+import { Menu, X, Phone, Mail } from "lucide-react";
 
 const Header = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -32,9 +31,22 @@ const Header = () => {
           </nav>
 
           <div className="flex items-center space-x-4">
-            <Button variant="outline" className="hidden md:inline-flex">
-              Schedule Consultation
-            </Button>
+            <div className="hidden md:flex flex-col items-end text-right space-y-1">
+              <a 
+                href="tel:+12149973361" 
+                className="text-foreground hover:text-gold transition-colors font-medium text-sm flex items-center gap-2"
+              >
+                <Phone size={16} className="text-gold" />
+                <span>(214) 997-3361</span>
+              </a>
+              <a 
+                href="mailto:contact@lbinvestmentsllc.com" 
+                className="text-foreground hover:text-gold transition-colors text-sm flex items-center gap-2"
+              >
+                <Mail size={16} className="text-gold" />
+                <span>contact@lbinvestmentsllc.com</span>
+              </a>
+            </div>
             
             {/* Mobile Menu Button */}
             <button
@@ -72,9 +84,24 @@ const Header = () => {
               >
                 Contact
               </a>
-              <Button variant="outline" className="w-full" onClick={closeMenu}>
-                Schedule Consultation
-              </Button>
+              <div className="flex flex-col space-y-3 pt-2 border-t border-border">
+                <a 
+                  href="tel:+12149973361" 
+                  className="text-foreground hover:text-gold transition-colors font-medium text-base flex items-center gap-2"
+                  onClick={closeMenu}
+                >
+                  <Phone size={18} className="text-gold" />
+                  <span>(214) 997-3361</span>
+                </a>
+                <a 
+                  href="mailto:contact@lbinvestmentsllc.com" 
+                  className="text-foreground hover:text-gold transition-colors text-base flex items-center gap-2"
+                  onClick={closeMenu}
+                >
+                  <Mail size={18} className="text-gold" />
+                  <span>contact@lbinvestmentsllc.com</span>
+                </a>
+              </div>
             </div>
           </nav>
         )}
