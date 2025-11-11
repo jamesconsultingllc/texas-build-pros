@@ -24,8 +24,11 @@ jobs:
           azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN_MANGO_MEADOW_0DA95B810 }}
           repo_token: ${{ secrets.GITHUB_TOKEN }} # Used for Github integrations (i.e. PR comments)
           action: "upload"
-          deployment_environment: ${{ github.ref_name == 'main' && 'Production' || 'beta' }}
+          deployment_environment: ${{ github.ref_name != 'main' && 'beta' || '' }}
           ###### Repository/Build Configurations - These values can be configured to match your app requirements. ######
+          # Note: When deployment_environment is empty/not set, it defaults to Production
+          # Main branch: deployment_environment is empty (defaults to Production)
+          # Other branches: deployment_environment is set to 'beta'
           # For more information regarding Static Web App workflow configurations, please visit: https://aka.ms/swaworkflowconfig
           app_location: "/" # App source code path
           api_location: "" # Api source code path - optional
