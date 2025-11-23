@@ -26,57 +26,22 @@ import {
 import { toast } from 'sonner';
 
 const ProjectList = () => {
-  const [projects, setProjects] = useState<Project[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const { data: projects = [], isLoading } = useAdminProjects();
+  const deleteProject = useDeleteProject();
   const [searchTerm, setSearchTerm] = useState('');
-  const [filterStatus, setFilterStatus] = useState<'all' | 'published' | 'draft'>('all');
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [projectToDelete, setProjectToDelete] = useState<string | null>(null);
 
-  useEffect(() => {
-    fetchProjects();
-  }, []);
-
-  const fetchProjects = async () => {
-    try {
-      // TODO: Replace with your Azure Static Web App API endpoint
-      // const response = await fetch('/api/admin/projects');
-      // const data = await response.json();
-      // setProjects(data);
-      
-      setProjects([]);
-    } catch (error) {
-      console.error('Failed to fetch projects:', error);
-      toast.error('Failed to load projects');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleDelete = async () => {
+  const handleDelete = () => {
     if (!projectToDelete) return;
-
-    try {
-      // TODO: Replace with your Azure Static Web App API endpoint
-      // await fetch(`/api/admin/projects/${projectToDelete}`, { method: 'DELETE' });
-      
-      setProjects(projects.filter((p) => p.id !== projectToDelete));
-      toast.success('Project deleted successfully');
-    } catch (error) {
-      console.error('Failed to delete project:', error);
-      toast.error('Failed to delete project');
-    } finally {
-      setDeleteDialogOpen(false);
-      setProjectToDelete(null);
-    }
+    deleteProject.mutate(projectToDelete);
+    setDeleteDialogOpen(false);
+    setProjectToDelete(null);
   };
 
-  const filteredProjects = projects.filter((project) => {
-    const matchesSearch = project.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      project.location.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesFilter = filterStatus === 'all' || project.status === filterStatus;
-    return matchesSearch && matchesFilter;
-  });
+  const filteredProjects = projects.filter((project) =>
+    project.title.toLowerCase().includes(searchTerm.toLowerCase())
+  );
 
   return (
     <AdminLayout>
