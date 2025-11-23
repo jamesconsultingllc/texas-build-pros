@@ -41,9 +41,11 @@ const ProjectList = () => {
     setProjectToDelete(null);
   };
 
-  const filteredProjects = projects.filter((project) =>
-    project.title.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredProjects = projects.filter((project) => {
+    const matchesSearch = project.title.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesStatus = filterStatus === 'all' || project.status === filterStatus;
+    return matchesSearch && matchesStatus;
+  });
 
   return (
     <AdminLayout>
