@@ -1,4 +1,23 @@
-import { ApplicationInsights } from '@microsoft/applicationinsights-web';
+import { ApplicationInsights, type ICustomProperties, type IDependencyTelemetry } from '@microsoft/applicationinsights-web';
+
+type TelemetryProperties = ICustomProperties;
+
+const createDependencyTelemetry = (
+  target: string,
+  name: string,
+  duration: number,
+  success: boolean
+): IDependencyTelemetry => ({
+  id: typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+    ? crypto.randomUUID()
+    : `dep_${Date.now()}_${Math.random().toString(16).slice(2)}`,
+  target,
+  name,
+  duration,
+  success,
+  responseCode: success ? 200 : 500,
+  type: 'HTTP'
+});
 
 const appInsights = new ApplicationInsights({
   config: {
@@ -20,7 +39,7 @@ if (import.meta.env.VITE_APPINSIGHTS_CONNECTION_STRING) {
   appInsights.trackPageView();
   
   // Global error handler
-  window.addEventListener('error', (event) => {
+  window.addEventListener('error', (event: ErrorEvent) => {
     appInsights.trackException({ 
       exception: event.error,
       severityLevel: 3 
@@ -28,41 +47,44 @@ if (import.meta.env.VITE_APPINSIGHTS_CONNECTION_STRING) {
   });
 
   // Global unhandled promise rejection handler
-  window.addEventListener('unhandledrejection', (event) => {
+  window.addEventListener('unhandledrejection', (event: PromiseRejectionEvent) => {
+    const reason = event.reason instanceof Error
+      ? event.reason
+      : new Error(typeof event.reason === 'string' ? event.reason : 'Unhandled rejection');
+
     appInsights.trackException({ 
-      exception: new Error(event.reason),
+      exception: reason,
       severityLevel: 3 
     });
   });
 }
 
 export const telemetry = {
-  trackEvent: (name: string, properties?: Record<string, any>) => {
+  trackEvent: (name: string, properties?: TelemetryProperties) => {
     appInsights.trackEvent({ name }, properties);
   },
 
-  trackDependency: (name: string, data: string, duration: number, success: boolean) => {
-    appInsights.trackDependency({
-      target: name,
-      name: data,
-      duration,
-      success,
-      responseCode: success ? 200 : 500,
-    });
+  trackDependency: (
+    target: string,
+    name: string,
+    duration: number,
+    success: boolean
+  ) => {
+    appInsights.trackDependencyData(createDependencyTelemetry(target, name, duration, success));
   },
 
-  trackError: (error: Error, properties?: Record<string, any>) => {
+  trackError: (error: Error, properties?: TelemetryProperties) => {
     appInsights.trackException({ 
       exception: error,
       severityLevel: 3
     }, properties);
   },
 
-  trackUserAction: (action: string, data?: Record<string, any>) => {
+  trackUserAction: (action: string, data?: TelemetryProperties) => {
     appInsights.trackEvent({ name: `UserAction_${action}` }, data);
   },
 
-  trackMetric: (name: string, average: number, properties?: Record<string, any>) => {
+  trackMetric: (name: string, average: number, properties?: TelemetryProperties) => {
     appInsights.trackMetric({ name, average }, properties);
   },
 
@@ -82,7 +104,7 @@ export const telemetry = {
     appInsights.startTrackPage(name);
   },
 
-  stopTrackPage: (name?: string, url?: string, customProperties?: Record<string, any>) => {
+  stopTrackPage: (name?: string, url?: string, customProperties?: TelemetryProperties) => {
     appInsights.stopTrackPage(name, url, customProperties);
   },
 };

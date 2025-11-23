@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import AdminLayout from '@/components/AdminLayout';
 import { Button } from '@/components/ui/button';
@@ -12,7 +12,6 @@ import {
   Eye,
   ExternalLink,
 } from 'lucide-react';
-import { Project } from '@/types/project';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -23,7 +22,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { toast } from 'sonner';
 import { useAdminProjects, useDeleteProject } from '@/hooks/use-projects';
 
 const ProjectList = () => {

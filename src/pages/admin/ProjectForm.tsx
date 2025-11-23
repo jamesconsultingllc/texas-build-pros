@@ -50,7 +50,7 @@ const ProjectForm = () => {
     if (isEditing) {
       fetchProject();
     }
-  }, [id]);
+  }, [isEditing]);
 
   const fetchProject = async () => {
     setIsLoading(true);
@@ -106,13 +106,6 @@ const ProjectForm = () => {
     } finally {
       setIsSaving(false);
     }
-  };
-
-  const generateSlug = (title: string) => {
-    return title
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/(^-|-$)/g, '');
   };
 
   if (isLoading) {
