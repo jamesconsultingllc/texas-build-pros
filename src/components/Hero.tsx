@@ -29,12 +29,16 @@ const Hero = () => {
           </p>
           
           <div className="flex flex-col sm:flex-row gap-4">
-            <Button size="lg" className="bg-gold hover:bg-gold-light text-white text-lg h-14 px-8">
-              Start Your Project
-              <ArrowRight className="ml-2 h-5 w-5" />
+            <Button size="lg" className="bg-gold hover:bg-gold-light text-white text-lg h-14 px-8" asChild>
+              <a href="#contact">
+                Start Your Project
+                <ArrowRight className="ml-2 h-5 w-5" />
+              </a>
             </Button>
-            <Button size="lg" variant="outline" className="bg-white/10 border-white text-white hover:bg-white hover:text-navy backdrop-blur-sm text-lg h-14 px-8">
-              View Our Work
+            <Button size="lg" variant="outline" className="bg-white/10 border-white text-white hover:bg-white hover:text-navy backdrop-blur-sm text-lg h-14 px-8" asChild>
+              <a href="/portfolio">
+                View Our Work
+              </a>
             </Button>
           </div>
         </div>
