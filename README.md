@@ -1,6 +1,6 @@
-# Texas Build Pros
+# Legacy Builders
 
-A modern portfolio website for Texas Build Pros real estate rehab company built with React, TypeScript, and Azure Static Web Apps.
+A modern portfolio website for Legacy Builders Investments LLC real estate rehab company built with React, TypeScript, and Azure Static Web Apps.
 
 ## 🚀 Features
 
@@ -14,7 +14,7 @@ A modern portfolio website for Texas Build Pros real estate rehab company built 
 ## 📁 Project Structure
 
 ```
-texas-build-pros/
+legacy-builders/
 ├── src/
 │   ├── components/       # Reusable UI components
 │   ├── contexts/         # React contexts (Auth, etc.)
@@ -22,11 +22,18 @@ texas-build-pros/
 │   ├── lib/             # Utilities (API client, telemetry)
 │   ├── pages/           # Page components
 │   └── types/           # TypeScript types
+├── infrastructure/      # Bicep templates for Azure resources
+│   ├── main.bicep
+│   ├── README.md
+│   └── QUICK-START.md
 ├── docs/                # Documentation
 │   ├── telemetry-quick-start.md
 │   ├── telemetry-implementation.md
 │   ├── TELEMETRY-COMPLETE.md
 │   └── TELEMETRY-CHECKLIST.md
+├── scripts/             # Automation scripts
+│   ├── create-app-insights.ps1
+│   └── create-app-insights.sh
 └── public/              # Static assets
 ```
 
@@ -58,8 +65,8 @@ texas-build-pros/
 
 1. **Clone the repository**
 ```sh
-git clone https://github.com/YOUR_USERNAME/texas-build-pros.git
-cd texas-build-pros
+git clone https://github.com/YOUR_USERNAME/legacy-builders.git
+cd legacy-builders
 ```
 
 2. **Install dependencies**
@@ -103,12 +110,27 @@ This project includes complete Azure Application Insights integration:
 
 **Full Documentation:** See [Telemetry Implementation](./docs/telemetry-implementation.md)
 
+## 🏗️ Infrastructure as Code
+
+Deploy all Azure resources using Bicep:
+
+```bash
+# Create infrastructure
+az group create --name legacy-builders-rg --location southcentralus
+
+az deployment group create \
+  --resource-group legacy-builders-rg \
+  --template-file infrastructure/main.bicep
+```
+
+See [Infrastructure README](./infrastructure/README.md) for details.
+
 ## 📖 Documentation
 
 - **[Telemetry Quick Start](./docs/telemetry-quick-start.md)** - Get monitoring working in 5 minutes
 - **[Telemetry Implementation](./docs/telemetry-implementation.md)** - Complete guide
 - **[Telemetry Checklist](./docs/TELEMETRY-CHECKLIST.md)** - Step-by-step setup
-- **[Authentication Plan](./docs/authentication-implementation-plan.md)** - Auth implementation guide
+- **[Infrastructure Guide](./infrastructure/README.md)** - Bicep deployment guide
 
 ## 🚀 Deployment
 
@@ -133,8 +155,6 @@ This project is configured for Azure Static Web Apps deployment via GitHub Actio
 - `npm run build:dev` - Build in development mode
 - `npm run lint` - Run ESLint
 - `npm run preview` - Preview production build
-- `npm run swa:start` - Start with Azure SWA CLI
-- `npm run swa:build` - Build and start with SWA CLI
 
 ## 🔐 Authentication
 
@@ -199,7 +219,7 @@ throw new Error("Test error"); // Should appear in Failures
 
 ## 📄 License
 
-This project is private and proprietary.
+This project is private and proprietary to Legacy Builders Investments LLC.
 
 ## 🆘 Support
 
@@ -212,6 +232,7 @@ This project is private and proprietary.
 - [x] Frontend UI implementation
 - [x] Telemetry & monitoring setup
 - [x] Error boundary & error tracking
+- [x] Infrastructure as Code (Bicep)
 - [ ] C# API implementation
 - [ ] Cosmos DB integration
 - [ ] Image upload to Azure Blob Storage
@@ -221,10 +242,10 @@ This project is private and proprietary.
 
 ## 📊 Project Status
 
-**Current Phase:** Frontend Complete + Telemetry Implemented ✅
+**Current Phase:** Frontend Complete + Infrastructure Ready ✅
 
 **Next Phase:** Backend API Implementation
 
 ---
 
-Built with ❤️ by Texas Build Pros
+Built with ❤️ by Legacy Builders Investments LLC
