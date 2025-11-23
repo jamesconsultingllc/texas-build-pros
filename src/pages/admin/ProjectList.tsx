@@ -24,11 +24,13 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { toast } from 'sonner';
+import { useAdminProjects, useDeleteProject } from '@/hooks/use-projects';
 
 const ProjectList = () => {
   const { data: projects = [], isLoading } = useAdminProjects();
   const deleteProject = useDeleteProject();
   const [searchTerm, setSearchTerm] = useState('');
+  const [filterStatus, setFilterStatus] = useState<'all' | 'published' | 'draft'>('all');
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [projectToDelete, setProjectToDelete] = useState<string | null>(null);
 

@@ -31,12 +31,24 @@ az staticwebapp show --name legacy-builders --resource-group legacy-builders
 ### 3. Link Environments to Branches
 
 ```bash
-# Static Web Apps automatically create environments from branches
+# Static Web Apps automatically create environments from GitFlow branches
 # Push to these branches to create/update environments:
-# - main → Production
-# - staging → Staging environment
-# - dev → Dev environment
+# - main        → Production
+# - develop     → Development
+# - release/*   → Staging
+# - feature/*   → Preview (per pull request)
+# - hotfix/*    → Preview (per pull request)
 ```
+
+### GitFlow Branch → Environment Mapping
+
+| Branch Pattern | SWA Environment | Purpose |
+|----------------|-----------------|---------|
+| `main` | Production | Live customer traffic |
+| `develop` | Dev | Integration testing + daily QA |
+| `release/*` | Staging | Final validation before prod |
+| `feature/*` | Preview (auto) | PR verification per feature |
+| `hotfix/*` | Preview (auto) | Emergency fixes validated before release |
 
 ### 4. Get Connection Strings
 
@@ -105,27 +117,27 @@ az staticwebapp show --name legacy-builders --resource-group legacy-builders --q
 
 ---
 
-## 🔄 Typical Workflow
+## 🔄 Typical GitFlow Deployment Cycle
 
 ```
-1. Create PR → dev branch
-   └─ Preview environment created
-   └─ Uses dev infrastructure
+1. Start a feature from develop (git flow feature start <name>)
+   └─ Push to origin → preview SWA environment spins up for the PR
+   └─ Uses dev infrastructure for downstream resources
 
-2. Merge to dev → dev environment updates
-   └─ https://dev.legacy-builders.azurestaticapps.net
+2. Finish feature → merge into develop
+   └─ Develop branch deployment refreshes the shared dev SWA environment
 
-3. Create PR → staging branch
-   └─ Preview environment created
+3. Cut a release branch (git flow release start <version>)
+   └─ Release/* branches auto-deploy to the staging SWA environment
+   └─ Perform final validation + approvals here
 
-4. Merge to staging → staging environment updates
-   └─ https://staging.legacy-builders.azurestaticapps.net
+4. Finish release → merge to main and back-merge to develop
+   └─ Main deploys to production SWA
+   └─ Tags (vX.Y.Z) mark releases
 
-5. Create PR → main branch
-   └─ Preview environment created
-
-6. Merge to main → production environment updates
-   └─ https://legacy-builders.azurestaticapps.net
+5. Hotfix? Start from main (git flow hotfix start <version>)
+   └─ Preview SWA spins up for PR validation
+   └─ Finish hotfix to patch main + sync develop quickly
 ```
 
 ---
@@ -135,15 +147,51 @@ az staticwebapp show --name legacy-builders --resource-group legacy-builders --q
 ```bash
 # List all environments
 az staticwebapp environment list \
-  --name legacy-builders-swa \
-  --resource-group legacy-builders-prod-rg
+  --name legacy-builders \
+  --resource-group legacy-builders
 
 # Check environment variables
 az staticwebapp appsettings list \
-  --name legacy-builders-swa \
-  --resource-group legacy-builders-prod-rg \
+  --name legacy-builders \
+  --resource-group legacy-builders \
   --environment-name staging
+
+az staticwebapp appsettings list \
+  --name legacy-builders \
+  --resource-group legacy-builders \
+  --environment-name dev
 ```
+
+---
+
+## 🧭 GitFlow Commands Reference
+
+> Install the GitFlow CLI (`git flow`) or run the equivalent manual git commands in parentheses.
+
+```bash
+# Start a new feature branch
+git flow feature start my-feature        # or: git checkout -b feature/my-feature develop
+
+# Publish the feature for collaboration (creates preview SWA env)
+git push origin feature/my-feature
+
+# Finish the feature after PR approval
+git flow feature finish my-feature      # or: git checkout develop && git merge --no-ff feature/my-feature
+
+# Start a release branch
+git flow release start 1.2.0            # or: git checkout -b release/1.2.0 develop
+
+# Finish the release (tags main + merges back to develop)
+git flow release finish 1.2.0
+
+# Emergency hotfix from production
+git flow hotfix start 1.2.1             # or: git checkout -b hotfix/1.2.1 main
+
+# Finish the hotfix to patch prod and sync develop
+git flow hotfix finish 1.2.1
+```
+
+Keep `main` and `develop` protected in GitHub so merges require passing CI and at least one approval.
 
 ---
 
