@@ -18,36 +18,24 @@ az group create --name legacy-builders-dev-rg --location southcentralus
 az deployment group create --resource-group legacy-builders-dev-rg --template-file infrastructure/main.bicep --parameters environment=dev
 ```
 
-### 2. Create Static Web App
+### 2. Static Web App (Already Created)
 
 ```bash
-az staticwebapp create \
-  --name legacy-builders-swa \
-  --resource-group legacy-builders-prod-rg \
-  --source https://github.com/YOUR_USERNAME/legacy-builders \
-  --branch main \
-  --app-location "/" \
-  --api-location "api" \
-  --output-location "dist" \
-  --location centralus
+# The SWA already exists:
+# Name: legacy-builders
+# Resource Group: legacy-builders
+# To view details:
+az staticwebapp show --name legacy-builders --resource-group legacy-builders
 ```
 
-### 3. Create Named Environments
+### 3. Link Environments to Branches
 
 ```bash
-# Staging
-az staticwebapp environment create \
-  --name legacy-builders-swa \
-  --resource-group legacy-builders-prod-rg \
-  --environment-name staging \
-  --branch staging
-
-# Dev
-az staticwebapp environment create \
-  --name legacy-builders-swa \
-  --resource-group legacy-builders-prod-rg \
-  --environment-name dev \
-  --branch dev
+# Static Web Apps automatically create environments from branches
+# Push to these branches to create/update environments:
+# - main → Production
+# - staging → Staging environment
+# - dev → Dev environment
 ```
 
 ### 4. Get Connection Strings
@@ -66,10 +54,10 @@ az deployment group show --resource-group legacy-builders-dev-rg --name main --q
 ### 5. Configure SWA Environment Variables
 
 ```bash
-# Production
+# Production (default environment)
 az staticwebapp appsettings set \
-  --name legacy-builders-swa \
-  --resource-group legacy-builders-prod-rg \
+  --name legacy-builders \
+  --resource-group legacy-builders \
   --setting-names \
     CosmosDbEndpoint="https://legacy-builders-cosmos-prod.documents.azure.com:443/" \
     CosmosDbDatabaseName="LegacyBuilders" \
@@ -78,8 +66,8 @@ az staticwebapp appsettings set \
 
 # Staging
 az staticwebapp appsettings set \
-  --name legacy-builders-swa \
-  --resource-group legacy-builders-prod-rg \
+  --name legacy-builders \
+  --resource-group legacy-builders \
   --environment-name staging \
   --setting-names \
     CosmosDbEndpoint="https://legacy-builders-cosmos-staging.documents.azure.com:443/" \
@@ -89,8 +77,8 @@ az staticwebapp appsettings set \
 
 # Dev
 az staticwebapp appsettings set \
-  --name legacy-builders-swa \
-  --resource-group legacy-builders-prod-rg \
+  --name legacy-builders \
+  --resource-group legacy-builders \
   --environment-name dev \
   --setting-names \
     CosmosDbEndpoint="https://legacy-builders-cosmos-dev.documents.azure.com:443/" \
@@ -105,10 +93,15 @@ az staticwebapp appsettings set \
 
 | Environment | URL | Infrastructure |
 |------------|-----|----------------|
-| **Production** | `https://legacy-builders.azurestaticapps.net` | `legacy-builders-prod-rg` |
-| **Staging** | `https://staging.legacy-builders.azurestaticapps.net` | `legacy-builders-staging-rg` |
-| **Dev** | `https://dev.legacy-builders.azurestaticapps.net` | `legacy-builders-dev-rg` |
-| **PR Preview** | `https://[random].azurestaticapps.net` | Uses dev infrastructure |
+| **Production** | `https://[default-hostname].azurestaticapps.net` | `legacy-builders-prod-rg` |
+| **Staging** | `https://[default-hostname]-staging.azurestaticapps.net` | `legacy-builders-staging-rg` |
+| **Dev** | `https://[default-hostname]-dev.azurestaticapps.net` | `legacy-builders-dev-rg` |
+| **PR Preview** | `https://[default-hostname]-[pr-number].azurestaticapps.net` | Uses dev infrastructure |
+
+To get your actual URLs:
+```bash
+az staticwebapp show --name legacy-builders --resource-group legacy-builders --query defaultHostname -o tsv
+```
 
 ---
 
