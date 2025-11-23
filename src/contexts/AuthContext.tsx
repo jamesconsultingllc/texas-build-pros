@@ -26,7 +26,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     // Check Azure Static Web Apps authentication
     const checkAuth = async () => {
       try {
-        telemetry.trackTrace('Checking authentication status', 1);
+        telemetry.trackEvent('Checking_Authentication_Status', { severity: 1 });
 
         const response = await fetch('/.auth/me');
         const data = await response.json();
@@ -49,7 +49,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
           console.log('✅ User authenticated:', data.clientPrincipal.userDetails);
         } else {
-          telemetry.trackTrace('User not authenticated', 1);
+          telemetry.trackEvent('User_Not_Authenticated', { severity: 1 });
         }
       } catch (error) {
         console.error('Auth check failed:', error);
