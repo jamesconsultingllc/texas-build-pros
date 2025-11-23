@@ -1,4 +1,5 @@
 import { toast } from 'sonner';
+import type { Project, ProjectFormData } from '@/types/project';
 
 class ApiError extends Error {
   constructor(public status: number, message: string, public data?: unknown) {
