@@ -1,215 +1,226 @@
-# Deploy Infrastructure with Pure Bicep
+# Legacy Builders Infrastructure
 
-## 🚀 One-Command Deployment
+Complete Azure infrastructure as code using Bicep for the Legacy Builders Investments application.
 
-### Create Resource Group + Deploy Everything
+## Architecture
+
+This Bicep template deploys a complete serverless architecture on Azure:
+
+- **Azure Static Web Apps** (Standard tier for prod, Free tier for dev/staging)
+  - System-assigned managed identity
+  - Automatic GitHub integration
+  - Built-in CI/CD
+  - Custom domain support (production only)
+- **Azure Cosmos DB** (Serverless)
+  - `projects` container (partitioned by `/status`)
+  - `users` container (partitioned by `/tenantId`)
+  - `audit` container (partitioned by `/entityType`, 30-day TTL)
+- **Azure Blob Storage** (Standard LRS)
+  - `project-images` container (public blob access)
+- **Application Insights** + Log Analytics
+  - 90-day retention
+  - Linked to Static Web App automatically
+
+## Managed Identity & RBAC
+
+The template automatically configures:
+
+1. **Storage Blob Data Contributor** role for SWA managed identity
+   - Allows API to upload images to blob storage without connection strings
+2. **Cosmos DB Data Contributor** role for SWA managed identity
+   - Allows API to read/write Cosmos DB without connection strings
+
+## Deployment
+
+### Prerequisites
 
 ```bash
-# Login to Azure
+# Install Azure CLI
 az login
-
-# Create resource group
-az group create \
-  --name legacy-builders-rg \
-  --location southcentralus
-
-# Deploy infrastructure
-az deployment group create \
-  --resource-group legacy-builders-rg \
-  --template-file infrastructure/main.bicep
+az account set --subscription <subscription-id>
 ```
 
-That's it! ✅
+### Deploy to Environment
 
----
-
-## 🎯 Deploy to Different Environments
-
-### Development
-
+**Production:**
 ```bash
+az group create --name legacy-builders-prod-rg --location centralus
+az deployment group create \
+  --resource-group legacy-builders-prod-rg \
+  --template-file infrastructure/main.bicep \
+  --parameters environment=prod customDomain='www.lbinvestmentsllc.com'
+```
+
+**Staging:**
+```bash
+az group create --name legacy-builders-staging-rg --location centralus
+az deployment group create \
+  --resource-group legacy-builders-staging-rg \
+  --template-file infrastructure/main.bicep \
+  --parameters environment=staging
+```
+
+**Dev:**
+```bash
+az group create --name legacy-builders-dev-rg --location centralus
 az deployment group create \
   --resource-group legacy-builders-dev-rg \
   --template-file infrastructure/main.bicep \
   --parameters environment=dev
 ```
 
-### Production
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `environment` | string | `dev` | Environment: `dev`, `staging`, or `prod` |
+| `location` | string | `resourceGroup().location` | Azure region |
+| `projectName` | string | `legacy-builders` | Project name prefix |
+| `staticWebAppSku` | string | `Standard` (prod), `Free` (dev/staging) | SWA SKU tier |
+| `customDomain` | string | `''` | Custom domain for production (optional) |
+
+## Outputs
+
+After deployment, the template outputs:
+
+```bash
+# Get outputs
+az deployment group show \
+  --resource-group legacy-builders-prod-rg \
+  --name main \
+  --query properties.outputs
+```
+
+Available outputs:
+- `appInsightsConnectionString` - Application Insights connection string
+- `cosmosDbEndpoint` - Cosmos DB endpoint URL
+- `cosmosDbDatabaseName` - Cosmos DB database name (`LegacyBuilders`)
+- `storageAccountName` - Storage account name
+- `storageBlobEndpoint` - Blob storage endpoint URL
+- `staticWebAppName` - Static Web App resource name
+- `staticWebAppDefaultHostname` - Default `.azurestaticapps.net` hostname
+- `staticWebAppId` - Resource ID of the Static Web App
+- `staticWebAppPrincipalId` - Managed identity principal ID
+
+## Environment Configuration
+
+After deployment, configure these app settings in the Static Web App:
+
+1. **Application Insights** (auto-configured via Bicep)
+   - `APPLICATIONINSIGHTS_CONNECTION_STRING`
+2. **Cosmos DB** (auto-configured via Bicep)
+   - `CosmosDbEndpoint`
+   - `CosmosDbDatabaseName`
+3. **Environment** (auto-configured via Bicep)
+   - `Environment` (`prod`, `staging`, or `dev`)
+
+## GitHub Integration
+
+The Static Web App will automatically:
+1. Create a GitHub Actions workflow in your repository
+2. Deploy on push to the configured branch:
+   - `main` → Production
+   - `release/*` → Staging
+   - `develop` → Dev
+3. Create preview environments for pull requests
+
+## Custom Domain Setup
+
+For production with custom domain:
+
+1. Deploy with custom domain parameter:
+   ```bash
+   --parameters customDomain='www.lbinvestmentsllc.com'
+   ```
+
+2. Configure DNS CNAME record:
+   ```
+   www.lbinvestmentsllc.com → <swa-default-hostname>
+   ```
+
+3. Wait for Azure to validate and provision SSL certificate (automatic)
+
+## Security Best Practices
+
+✅ **No connection strings or secrets in code**
+- Managed identities for all service-to-service communication
+
+✅ **RBAC roles with least privilege**
+- Storage Blob Data Contributor (not Owner)
+- Cosmos DB Data Contributor (not Account Reader Key)
+
+✅ **TLS 1.2 minimum** enforced on all services
+
+✅ **Public access** limited to necessary containers only
+
+## Cost Optimization
+
+All services use free or low-cost tiers:
+- **Static Web Apps:** Free tier (dev/staging), Standard tier (prod) ~$9/month
+- **Cosmos DB:** Serverless (pay-per-request, first 1000 RU/s free)
+- **Application Insights:** Free tier (5GB/month ingestion)
+- **Azure Functions:** Consumption plan (1M executions free/month)
+- **Storage Account:** Standard LRS (5GB free, ~$0.02/GB after)
+
+**Estimated monthly cost:**
+- Dev/Staging: ~$0-5 (mostly free tier)
+- Production: ~$10-30 (depends on traffic)
+
+## Troubleshooting
+
+### Role assignment not working?
+
+Check that the managed identity has been created:
+```bash
+az staticwebapp show \
+  --name legacy-builders-swa-prod \
+  --resource-group legacy-builders-prod-rg \
+  --query identity.principalId
+```
+
+### Cosmos DB access denied?
+
+Verify role assignment:
+```bash
+az cosmosdb sql role assignment list \
+  --account-name legacy-builders-cosmos-prod \
+  --resource-group legacy-builders-prod-rg
+```
+
+### Storage access denied?
+
+Verify role assignment:
+```bash
+az role assignment list \
+  --scope /subscriptions/<sub-id>/resourceGroups/<rg>/providers/Microsoft.Storage/storageAccounts/<storage-name>
+```
+
+## Updating Existing Resources
+
+To update an existing deployment:
 
 ```bash
 az deployment group create \
   --resource-group legacy-builders-prod-rg \
   --template-file infrastructure/main.bicep \
-  --parameters environment=prod
+  --parameters environment=prod customDomain='www.lbinvestmentsllc.com' \
+  --mode Incremental
 ```
 
----
+The deployment will only update changed resources.
 
-## 🔍 Preview Changes (What-If)
+## Cleanup
 
-See what will be created before deploying:
+To delete all resources:
 
 ```bash
-az deployment group what-if \
-  --resource-group legacy-builders-rg \
-  --template-file infrastructure/main.bicep
+# Delete entire resource group (CAUTION: this deletes everything!)
+az group delete --name legacy-builders-prod-rg --yes --no-wait
 ```
 
----
+## References
 
-## 📊 View Outputs
-
-After deployment, get the connection strings:
-
-```bash
-# Get all outputs
-az deployment group show \
-  --resource-group legacy-builders-rg \
-  --name main \
-  --query properties.outputs
-
-# Get specific output
-az deployment group show \
-  --resource-group legacy-builders-rg \
-  --name main \
-  --query properties.outputs.appInsightsConnectionString.value -o tsv
-```
-
----
-
-## ✅ What Gets Created
-
-**Application Insights:**
-- Log Analytics Workspace
-- Application Insights component
-
-**Cosmos DB:**
-- Cosmos DB account (Serverless)
-- Database: LegacyBuilders
-- Containers: projects, users, audit (with 30-day TTL)
-
-**Storage:**
-- Storage account
-- Blob container: project-images
-
-**No Functions/API** - That's managed by Static Web Apps!
-
----
-
-## 🔧 Override Parameters
-
-```bash
-az deployment group create \
-  --resource-group legacy-builders-rg \
-  --template-file infrastructure/main.bicep \
-  --parameters \
-    environment=prod \
-    projectName=legacy-builders \
-    location=eastus
-```
-
----
-
-## 📝 Export Outputs to File
-
-```bash
-az deployment group show \
-  --resource-group legacy-builders-rg \
-  --name main \
-  --query properties.outputs \
-  > infrastructure/outputs.json
-```
-
-Then add to `.env.local`:
-
-```bash
-# Extract connection string from outputs
-CONNECTION_STRING=$(jq -r '.appInsightsConnectionString.value' infrastructure/outputs.json)
-
-# Add to .env.local
-echo "VITE_APPINSIGHTS_CONNECTION_STRING=\"$CONNECTION_STRING\"" >> .env.local
-```
-
----
-
-## 🔄 Update Existing Deployment
-
-Bicep is idempotent - just run the same command again:
-
-```bash
-az deployment group create \
-  --resource-group legacy-builders-rg \
-  --template-file infrastructure/main.bicep
-```
-
-It will:
-- ✅ Create resources that don't exist
-- ✅ Update resources that changed
-- ✅ Leave unchanged resources alone
-
----
-
-## 🗑️ Delete Everything
-
-```bash
-# Delete the entire resource group
-az group delete \
-  --name legacy-builders-rg \
-  --yes
-```
-
----
-
-## 💰 Cost
-
-All resources use **Free Tier** where available:
-- Application Insights: First 5GB/month free
-- Cosmos DB: Serverless (pay per request)
-- Storage: Pay-as-you-go (pennies)
-
-**Estimated monthly cost: $0-5** for low traffic
-
----
-
-## 🎓 Tips
-
-### Validate Before Deploy
-
-```bash
-az deployment group validate \
-  --resource-group legacy-builders-rg \
-  --template-file infrastructure/main.bicep
-```
-
-### Name Your Deployment
-
-```bash
-az deployment group create \
-  --resource-group legacy-builders-rg \
-  --template-file infrastructure/main.bicep \
-  --name my-deployment-v1
-```
-
-### Deploy in Different Region
-
-```bash
-az deployment group create \
-  --resource-group legacy-builders-rg \
-  --template-file infrastructure/main.bicep \
-  --parameters location=eastus
-```
-
----
-
-## 🔗 Resources Created
-
-| Resource | Name Pattern | Free Tier |
-|----------|-------------|-----------|
-| Log Analytics | `legacy-builders-workspace-{env}` | 5GB/month |
-| App Insights | `legacy-builders-insights-{env}` | 5GB/month |
-| Cosmos DB | `legacy-builders-cosmos-{env}` | Serverless |
-| Storage | `legacybuilders{env}storage` | Pay-as-you-go |
-
----
-
-**That's it! No PowerShell, no scripts - just pure Bicep!** 🎉
+- [Azure Static Web Apps Documentation](https://learn.microsoft.com/en-us/azure/static-web-apps/)
+- [Azure Cosmos DB Serverless](https://learn.microsoft.com/en-us/azure/cosmos-db/serverless)
+- [Managed Identities](https://learn.microsoft.com/en-us/entra/identity/managed-identities-azure-resources/)
+- [Bicep Documentation](https://learn.microsoft.com/en-us/azure/azure-resource-manager/bicep/)

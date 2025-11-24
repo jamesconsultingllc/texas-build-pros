@@ -7,8 +7,10 @@ on:
       - main
       - develop
       - 'release/**'
+      - 'feature/**'
+      - 'hotfix/**'
   pull_request:
-    types: [opened, synchronize, reopened, closed]
+    types: [closed]
     branches:
       - main
       - develop
@@ -16,7 +18,7 @@ on:
 
 jobs:
   build_and_deploy_job:
-    if: github.event_name != 'pull_request' || github.event.action != 'closed'
+    if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     name: Build and Deploy Job
     steps:
@@ -30,18 +32,23 @@ jobs:
         shell: bash
         env:
           REF_NAME: ${{ github.ref_name }}
-          HEAD_REF: ${{ github.head_ref }}
         run: |
-          branch="${HEAD_REF:-$REF_NAME}"
+          branch="${REF_NAME}"
+          
           if [[ "$branch" == "main" ]]; then
             echo "environment=Production" >> "$GITHUB_OUTPUT"
             echo "slot=" >> "$GITHUB_OUTPUT"
           elif [[ "$branch" == "develop" ]]; then
             echo "environment=Development" >> "$GITHUB_OUTPUT"
-            echo "slot=dev" >> "$GITHUB_OUTPUT"
+            echo "slot=Development" >> "$GITHUB_OUTPUT"
           elif [[ "$branch" == release/* ]]; then
             echo "environment=Staging" >> "$GITHUB_OUTPUT"
-            echo "slot=staging" >> "$GITHUB_OUTPUT"
+            echo "slot=Staging" >> "$GITHUB_OUTPUT"
+          elif [[ "$branch" == feature/* ]] || [[ "$branch" == hotfix/* ]]; then
+            # Feature/hotfix branches get their own preview slot
+            sanitized_branch=$(echo "$branch" | sed 's/[^a-zA-Z0-9]/-/g' | cut -c1-20)
+            echo "environment=Preview-$sanitized_branch" >> "$GITHUB_OUTPUT"
+            echo "slot=" >> "$GITHUB_OUTPUT"
           else
             echo "environment=Preview" >> "$GITHUB_OUTPUT"
             echo "slot=" >> "$GITHUB_OUTPUT"
@@ -60,7 +67,13 @@ jobs:
           output_location: "dist"
 
   close_pull_request_job:
-    if: github.event_name == 'pull_request' && github.event.action == 'closed'
+    if: |
+      github.event_name == 'pull_request' && 
+      github.event.action == 'closed' &&
+      github.event.pull_request.merged == true &&
+      (startsWith(github.head_ref, 'feature/') || 
+       startsWith(github.head_ref, 'hotfix/') ||
+       (startsWith(github.head_ref, 'release/') && github.base_ref == 'develop'))
     runs-on: ubuntu-latest
     name: Close Preview Environment
     steps:

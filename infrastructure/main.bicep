@@ -1,9 +1,12 @@
 // =============================================================================
-// Legacy Builders - Complete Infrastructure (Pure Bicep)
+// Legacy Builders - Infrastructure Only (Uses Existing SWA)
 // =============================================================================
+// This template creates infrastructure resources and grants permissions to
+// an existing Static Web App's managed identity.
+//
 // Deploy with:
-//   rgName="${projectName}-${environment}-rg"
-//   az group create --name $rgName --location <location>
+//   rgName="legacy-builders-${environment}-rg"
+//   az group create --name $rgName --location southcentralus
 //   az deployment group create --resource-group $rgName --template-file main.bicep --parameters environment=<environment>
 // =============================================================================
 
@@ -17,6 +20,12 @@ param location string = resourceGroup().location
 @description('Project name prefix')
 param projectName string = 'legacy-builders'
 
+@description('Existing Static Web App name')
+param existingStaticWebAppName string = 'legacy-builders'
+
+@description('Existing Static Web App resource group')
+param existingStaticWebAppResourceGroup string = 'legacy-builders'
+
 // =============================================================================
 // Variables
 // =============================================================================
@@ -25,12 +34,26 @@ var appInsightsName = '${projectName}-insights-${environment}'
 var workspaceName = '${projectName}-workspace-${environment}'
 var cosmosAccountName = '${projectName}-cosmos-${environment}'
 var cosmosDatabaseName = 'LegacyBuilders'
-var storageAccountName = replace('${projectName}${environment}storage', '-', '')
+var storageAccountName = replace('${projectName}${environment}st', '-', '')
+
+// Built-in Azure RBAC role definitions
+var storageBlobDataContributorRoleId = 'ba92f5b4-2d11-453d-a403-e96b0029c9fe'
+var cosmosDbDataContributorRoleId = '00000000-0000-0000-0000-000000000002' // Cosmos DB built-in role
 
 var tags = {
   Project: 'LegacyBuilders'
   Environment: environment
   ManagedBy: 'Bicep'
+  StaticWebApp: existingStaticWebAppName
+}
+
+// =============================================================================
+// Reference Existing Static Web App
+// =============================================================================
+
+resource existingStaticWebApp 'Microsoft.Web/staticSites@2023-01-01' existing = {
+  name: existingStaticWebAppName
+  scope: resourceGroup(existingStaticWebAppResourceGroup)
 }
 
 // =============================================================================
@@ -102,6 +125,7 @@ resource cosmosDatabase 'Microsoft.DocumentDB/databaseAccounts/sqlDatabases@2023
   }
 }
 
+// Projects container - partitioned by status for efficient filtering
 resource projectsContainer 'Microsoft.DocumentDB/databaseAccounts/sqlDatabases/containers@2023-04-15' = {
   parent: cosmosDatabase
   name: 'projects'
@@ -112,10 +136,20 @@ resource projectsContainer 'Microsoft.DocumentDB/databaseAccounts/sqlDatabases/c
         paths: ['/status']
         kind: 'Hash'
       }
+      indexingPolicy: {
+        indexingMode: 'consistent'
+        automatic: true
+        includedPaths: [
+          {
+            path: '/*'
+          }
+        ]
+      }
     }
   }
 }
 
+// Users container - partitioned by tenantId for multi-tenant isolation
 resource usersContainer 'Microsoft.DocumentDB/databaseAccounts/sqlDatabases/containers@2023-04-15' = {
   parent: cosmosDatabase
   name: 'users'
@@ -126,10 +160,20 @@ resource usersContainer 'Microsoft.DocumentDB/databaseAccounts/sqlDatabases/cont
         paths: ['/tenantId']
         kind: 'Hash'
       }
+      indexingPolicy: {
+        indexingMode: 'consistent'
+        automatic: true
+        includedPaths: [
+          {
+            path: '/*'
+          }
+        ]
+      }
     }
   }
 }
 
+// Audit container - partitioned by entityType with TTL for compliance
 resource auditContainer 'Microsoft.DocumentDB/databaseAccounts/sqlDatabases/containers@2023-04-15' = {
   parent: cosmosDatabase
   name: 'audit'
@@ -140,7 +184,16 @@ resource auditContainer 'Microsoft.DocumentDB/databaseAccounts/sqlDatabases/cont
         paths: ['/entityType']
         kind: 'Hash'
       }
-      defaultTtl: 2592000 // 30 days
+      defaultTtl: 2592000 // 30 days TTL for audit logs
+      indexingPolicy: {
+        indexingMode: 'consistent'
+        automatic: true
+        includedPaths: [
+          {
+            path: '/*'
+          }
+        ]
+      }
     }
   }
 }
@@ -170,11 +223,38 @@ resource blobService 'Microsoft.Storage/storageAccounts/blobServices@2023-01-01'
   name: 'default'
 }
 
+// Project images container with public blob access for CDN-like performance
 resource projectImagesContainer 'Microsoft.Storage/storageAccounts/blobServices/containers@2023-01-01' = {
   parent: blobService
   name: 'project-images'
   properties: {
-    publicAccess: 'Blob'
+    publicAccess: 'Blob' // Allow public read access to images
+  }
+}
+
+// =============================================================================
+// Role Assignments (Using Existing SWA's Managed Identity)
+// =============================================================================
+
+// Grant existing SWA managed identity access to Blob Storage
+resource storageBlobDataContributorRoleAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  name: guid(storageAccount.id, existingStaticWebApp.id, storageBlobDataContributorRoleId)
+  scope: storageAccount
+  properties: {
+    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', storageBlobDataContributorRoleId)
+    principalId: existingStaticWebApp.identity.principalId
+    principalType: 'ServicePrincipal'
+  }
+}
+
+// Grant existing SWA managed identity access to Cosmos DB
+resource cosmosDbDataContributorRoleAssignment 'Microsoft.DocumentDB/databaseAccounts/sqlRoleAssignments@2023-04-15' = {
+  parent: cosmosAccount
+  name: guid(cosmosAccount.id, existingStaticWebApp.id, cosmosDbDataContributorRoleId)
+  properties: {
+    roleDefinitionId: '${cosmosAccount.id}/sqlRoleDefinitions/${cosmosDbDataContributorRoleId}'
+    principalId: existingStaticWebApp.identity.principalId
+    scope: cosmosAccount.id
   }
 }
 
@@ -183,7 +263,30 @@ resource projectImagesContainer 'Microsoft.Storage/storageAccounts/blobServices/
 // =============================================================================
 
 output appInsightsConnectionString string = appInsights.properties.ConnectionString
+output appInsightsName string = appInsights.name
 output cosmosDbEndpoint string = cosmosAccount.properties.documentEndpoint
 output cosmosDbDatabaseName string = cosmosDatabaseName
+output cosmosDbAccountName string = cosmosAccount.name
 output storageAccountName string = storageAccount.name
 output storageBlobEndpoint string = storageAccount.properties.primaryEndpoints.blob
+output workspaceName string = workspace.name
+output environment string = environment
+
+// Instructions for next steps
+output nextSteps string = '''
+Next steps:
+1. Update Static Web App configuration settings for this environment:
+   - APPLICATIONINSIGHTS_CONNECTION_STRING (from appInsightsConnectionString output)
+   - CosmosDbEndpoint (from cosmosDbEndpoint output)
+   - CosmosDbDatabaseName (from cosmosDbDatabaseName output)
+   - StorageAccountName (from storageAccountName output)
+   - Environment (from environment output)
+
+2. Configure environment-specific settings in your Static Web App:
+   - For staging/dev: Create branch policies or staging slots
+   - For production: Verify custom domain configuration
+
+3. The existing SWA managed identity now has access to:
+   - Cosmos DB: ${cosmosAccountName} (Data Contributor role)
+   - Storage: ${storageAccountName} (Blob Data Contributor role)
+'''
