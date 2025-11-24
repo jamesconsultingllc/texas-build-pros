@@ -43,20 +43,20 @@ jobs:
               # Check if branch came from develop
               if git merge-base --is-ancestor "$parent_commit" origin/develop 2>/dev/null; then
                 echo "source=develop" >> "$GITHUB_OUTPUT"
-                echo "source_env=Development" >> "$GITHUB_OUTPUT"
+                echo "source_env=development" >> "$GITHUB_OUTPUT"
               else
                 echo "source=main" >> "$GITHUB_OUTPUT"
-                echo "source_env=Production" >> "$GITHUB_OUTPUT"
+                echo "source_env=production" >> "$GITHUB_OUTPUT"
               fi
             else
               # Default to develop for feature branches
               echo "source=develop" >> "$GITHUB_OUTPUT"
-              echo "source_env=Development" >> "$GITHUB_OUTPUT"
+              echo "source_env=development" >> "$GITHUB_OUTPUT"
             fi
           elif [[ "$branch" == release/* ]]; then
             # Release branches come from develop
             echo "source=develop" >> "$GITHUB_OUTPUT"
-            echo "source_env=Development" >> "$GITHUB_OUTPUT"
+            echo "source_env=development" >> "$GITHUB_OUTPUT"
           else
             echo "source=none" >> "$GITHUB_OUTPUT"
             echo "source_env=none" >> "$GITHUB_OUTPUT"
@@ -75,10 +75,10 @@ jobs:
             echo "slot=" >> "$GITHUB_OUTPUT"
           elif [[ "$branch" == "develop" ]]; then
             echo "environment=Development" >> "$GITHUB_OUTPUT"
-            echo "slot=Development" >> "$GITHUB_OUTPUT"
+            echo "slot=development" >> "$GITHUB_OUTPUT"
           elif [[ "$branch" == release/* ]]; then
             echo "environment=Staging" >> "$GITHUB_OUTPUT"
-            echo "slot=Staging" >> "$GITHUB_OUTPUT"
+            echo "slot=staging" >> "$GITHUB_OUTPUT"
           elif [[ "$branch" == feature/* ]] || [[ "$branch" == hotfix/* ]]; then
             # Feature/hotfix branches get named preview slots
             sanitized_branch=$(echo "$branch" | sed 's/[^a-zA-Z0-9]/-/g' | cut -c1-20)
@@ -116,21 +116,21 @@ jobs:
           # Install Azure CLI if not present
           curl -sL https://aka.ms/InstallAzureCLIDeb | sudo bash
           
-          # Get source environment settings
+          # Get source environment settings (using lowercase)
           source_env="${{ steps.source-env.outputs.source_env }}"
           target_slot="${{ steps.resolve-env.outputs.slot }}"
           
           echo "Copying settings from $source_env to $target_slot"
           
           # Get settings from source environment
-          if [[ "$source_env" == "Production" ]]; then
+          if [[ "$source_env" == "production" ]]; then
             # Production has no environment suffix
             settings=$(az staticwebapp appsettings list \
               --name legacy-builders \
               --resource-group legacy-builders \
               --query "properties" -o json)
           else
-            # Development/Staging have environment suffix
+            # Development/Staging have environment suffix (using lowercase)
             settings=$(az staticwebapp appsettings list \
               --name legacy-builders \
               --resource-group legacy-builders \
