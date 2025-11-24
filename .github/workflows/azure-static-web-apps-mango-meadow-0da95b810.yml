@@ -45,13 +45,15 @@ jobs:
             echo "environment=Staging" >> "$GITHUB_OUTPUT"
             echo "slot=Staging" >> "$GITHUB_OUTPUT"
           elif [[ "$branch" == feature/* ]] || [[ "$branch" == hotfix/* ]]; then
-            # Feature/hotfix branches get their own preview slot
+            # Feature/hotfix branches get named preview slots
             sanitized_branch=$(echo "$branch" | sed 's/[^a-zA-Z0-9]/-/g' | cut -c1-20)
             echo "environment=Preview-$sanitized_branch" >> "$GITHUB_OUTPUT"
-            echo "slot=" >> "$GITHUB_OUTPUT"
+            echo "slot=preview-$sanitized_branch" >> "$GITHUB_OUTPUT"
           else
-            echo "environment=Preview" >> "$GITHUB_OUTPUT"
-            echo "slot=" >> "$GITHUB_OUTPUT"
+            # Any other branch gets a named preview slot
+            sanitized_branch=$(echo "$branch" | sed 's/[^a-zA-Z0-9]/-/g' | cut -c1-20)
+            echo "environment=Preview-$sanitized_branch" >> "$GITHUB_OUTPUT"
+            echo "slot=preview-$sanitized_branch" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Build And Deploy
@@ -65,6 +67,7 @@ jobs:
           app_location: "/"
           api_location: "api"
           output_location: "dist"
+          production_branch: main  # Explicitly set production branch
 
   close_pull_request_job:
     if: |
