@@ -1,15 +1,41 @@
+import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import AdminLayout from '@/components/AdminLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { FolderOpen, FileText, Plus, Eye } from 'lucide-react';
-import { useAdminDashboard } from '@/hooks/use-projects';
+import { Project } from '@/types/project';
 
 const AdminDashboard = () => {
-  const { data, isLoading, error } = useAdminDashboard();
+  const [stats, setStats] = useState({
+    total: 0,
+    published: 0,
+    draft: 0,
+  });
+  const [recentProjects, setRecentProjects] = useState<Project[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
-  const stats = data?.stats ?? { total: 0, published: 0, draft: 0 };
-  const recentProjects = data?.recentProjects ?? [];
+  useEffect(() => {
+    // TODO: Fetch from Azure Cosmos DB API
+    const fetchData = async () => {
+      try {
+        // Replace with your Azure Static Web App API endpoint
+        // const response = await fetch('/api/admin/dashboard');
+        // const data = await response.json();
+        // setStats(data.stats);
+        // setRecentProjects(data.recentProjects);
+        
+        setStats({ total: 0, published: 0, draft: 0 });
+        setRecentProjects([]);
+      } catch (error) {
+        console.error('Failed to fetch dashboard data:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchData();
+  }, []);
 
   return (
     <AdminLayout>
@@ -78,11 +104,7 @@ const AdminDashboard = () => {
             </div>
           </CardHeader>
           <CardContent>
-            {error ? (
-              <div className="text-center py-8 text-red-600">
-                Failed to load dashboard data. Please try again.
-              </div>
-            ) : isLoading ? (
+            {isLoading ? (
               <div className="text-center py-8 text-muted-foreground">Loading...</div>
             ) : recentProjects.length > 0 ? (
               <div className="space-y-4">

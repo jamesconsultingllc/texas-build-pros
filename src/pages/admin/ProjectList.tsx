@@ -40,7 +40,6 @@ const ProjectList = () => {
   };
 
   const filteredProjects = projects.filter((project) => {
-    if(!project || !project.title) return false;
     const matchesSearch = project.title.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus = filterStatus === 'all' || project.status === filterStatus;
     return matchesSearch && matchesStatus;
@@ -134,7 +133,7 @@ const ProjectList = () => {
                         {project.status}
                       </span>
                       <span className="text-muted-foreground">
-                        {project.completionDate && project.completionDate.trim() !== '' ? new Date(project.completionDate).toLocaleDateString() : 'In Progress'}
+                        {new Date(project.completionDate).toLocaleDateString()}
                       </span>
                     </div>
                   </div>
