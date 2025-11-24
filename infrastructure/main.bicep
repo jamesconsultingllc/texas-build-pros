@@ -17,6 +17,13 @@ param location string = resourceGroup().location
 @description('Project name prefix')
 param projectName string = 'legacy-builders'
 
+@description('Static Web App SKU')
+@allowed(['Free', 'Standard'])
+param staticWebAppSku string = environment == 'prod' ? 'Standard' : 'Free'
+
+@description('Custom domain for production (optional)')
+param customDomain string = ''
+
 // =============================================================================
 // Variables
 // =============================================================================
@@ -26,6 +33,11 @@ var workspaceName = '${projectName}-workspace-${environment}'
 var cosmosAccountName = '${projectName}-cosmos-${environment}'
 var cosmosDatabaseName = 'LegacyBuilders'
 var storageAccountName = replace('${projectName}${environment}storage', '-', '')
+var staticWebAppName = '${projectName}-swa-${environment}'
+
+// Built-in Azure RBAC role definitions
+var storageBlobDataContributorRoleId = 'ba92f5b4-2d11-453d-a403-e96b0029c9fe'
+var cosmosDbDataContributorRoleId = '00000000-0000-0000-0000-000000000002' // Cosmos DB built-in role
 
 var tags = {
   Project: 'LegacyBuilders'
@@ -179,6 +191,80 @@ resource projectImagesContainer 'Microsoft.Storage/storageAccounts/blobServices/
 }
 
 // =============================================================================
+// Static Web App
+// =============================================================================
+
+resource staticWebApp 'Microsoft.Web/staticSites@2023-01-01' = {
+  name: staticWebAppName
+  location: location
+  tags: tags
+  sku: {
+    name: staticWebAppSku
+    tier: staticWebAppSku
+  }
+  identity: {
+    type: 'SystemAssigned'
+  }
+  properties: {
+    repositoryUrl: 'https://github.com/jamesconsultingllc/texas-build-pros'
+    branch: environment == 'prod' ? 'main' : (environment == 'staging' ? 'release' : 'develop')
+    buildProperties: {
+      appLocation: '/'
+      apiLocation: 'api'
+      outputLocation: 'dist'
+    }
+    provider: 'GitHub'
+    stagingEnvironmentPolicy: 'Enabled'
+    allowConfigFileUpdates: true
+  }
+}
+
+// Custom domain configuration (only for production with custom domain)
+resource staticWebAppCustomDomain 'Microsoft.Web/staticSites/customDomains@2023-01-01' = if (!empty(customDomain) && environment == 'prod') {
+  parent: staticWebApp
+  name: customDomain
+  properties: {}
+}
+
+// Link Application Insights to Static Web App
+resource staticWebAppConfig 'Microsoft.Web/staticSites/config@2023-01-01' = {
+  parent: staticWebApp
+  name: 'appsettings'
+  properties: {
+    APPLICATIONINSIGHTS_CONNECTION_STRING: appInsights.properties.ConnectionString
+    CosmosDbEndpoint: cosmosAccount.properties.documentEndpoint
+    CosmosDbDatabaseName: cosmosDatabaseName
+    Environment: environment
+  }
+}
+
+// =============================================================================
+// Role Assignments (Managed Identity Access)
+// =============================================================================
+
+// Grant Static Web App managed identity access to Blob Storage
+resource storageBlobDataContributorRoleAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  name: guid(storageAccount.id, staticWebApp.id, storageBlobDataContributorRoleId)
+  scope: storageAccount
+  properties: {
+    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', storageBlobDataContributorRoleId)
+    principalId: staticWebApp.identity.principalId
+    principalType: 'ServicePrincipal'
+  }
+}
+
+// Grant Static Web App managed identity access to Cosmos DB
+resource cosmosDbDataContributorRoleAssignment 'Microsoft.DocumentDB/databaseAccounts/sqlRoleAssignments@2023-04-15' = {
+  parent: cosmosAccount
+  name: guid(cosmosAccount.id, staticWebApp.id, cosmosDbDataContributorRoleId)
+  properties: {
+    roleDefinitionId: '${cosmosAccount.id}/sqlRoleDefinitions/${cosmosDbDataContributorRoleId}'
+    principalId: staticWebApp.identity.principalId
+    scope: cosmosAccount.id
+  }
+}
+
+// =============================================================================
 // Outputs
 // =============================================================================
 
@@ -187,3 +273,7 @@ output cosmosDbEndpoint string = cosmosAccount.properties.documentEndpoint
 output cosmosDbDatabaseName string = cosmosDatabaseName
 output storageAccountName string = storageAccount.name
 output storageBlobEndpoint string = storageAccount.properties.primaryEndpoints.blob
+output staticWebAppName string = staticWebApp.name
+output staticWebAppDefaultHostname string = staticWebApp.properties.defaultHostname
+output staticWebAppId string = staticWebApp.id
+output staticWebAppPrincipalId string = staticWebApp.identity.principalId
