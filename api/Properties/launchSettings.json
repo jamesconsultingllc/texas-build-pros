@@ -3,7 +3,9 @@
     "api": {
       "commandName": "Project",
       "commandLineArgs": "--port 7233",
-      "launchBrowser": false
+      "environmentVariables": {
+        "CosmosDbEndpoint": "https://legacy-builders-cosmos-dev.documents.azure.com:443/"
+      }
     }
   }
 }
