@@ -29,3 +29,4 @@ dist-ssr
 
 api/obj
 api/bin
+/.claude
