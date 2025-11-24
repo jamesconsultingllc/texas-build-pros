@@ -66,7 +66,7 @@ const ProjectForm = () => {
         budget: existingProject.budget,
         finalCost: existingProject.finalCost,
         squareFootage: existingProject.squareFootage,
-        status: existingProject.status,
+        status: existingProject.status === 'archived' ? 'draft' : existingProject.status,
       });
       // TODO: Load existing images from project data
     }
@@ -108,7 +108,7 @@ const ProjectForm = () => {
       }
 
       // Success toasts and navigation are handled by the mutation hooks
-    } catch (error: any) {
+    } catch (error) {
       // Error toasts are handled by the mutation hooks
       // Additional error handling can be done here if needed
       console.error('Failed to save project:', error);
