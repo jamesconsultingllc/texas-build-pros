@@ -47,13 +47,13 @@ jobs:
           elif [[ "$branch" == feature/* ]] || [[ "$branch" == hotfix/* ]]; then
             # Feature/hotfix branches get named preview slots
             sanitized_branch=$(echo "$branch" | sed 's/[^a-zA-Z0-9]/-/g' | cut -c1-20)
-            echo "environment=Preview-$sanitized_branch" >> "$GITHUB_OUTPUT"
-            echo "slot=preview-$sanitized_branch" >> "$GITHUB_OUTPUT"
+            echo "environment=$sanitized_branch" >> "$GITHUB_OUTPUT"
+            echo "slot=$sanitized_branch" >> "$GITHUB_OUTPUT"
           else
             # Any other branch gets a named preview slot
             sanitized_branch=$(echo "$branch" | sed 's/[^a-zA-Z0-9]/-/g' | cut -c1-20)
-            echo "environment=Preview-$sanitized_branch" >> "$GITHUB_OUTPUT"
-            echo "slot=preview-$sanitized_branch" >> "$GITHUB_OUTPUT"
+            echo "environment=$sanitized_branch" >> "$GITHUB_OUTPUT"
+            echo "slot=$sanitized_branch" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Build And Deploy
