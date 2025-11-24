@@ -37,7 +37,7 @@ if ($Environment -eq 'prod') {
             Environment="$Environment"
 } else {
     # Dev/Staging - include environment name
-    $swaEnvironmentName = if ($Environment -eq 'dev') { 'dev' } else { 'Staging' }
+    $swaEnvironmentName = if ($Environment -eq 'dev') { 'development' } else { 'staging' }
     az staticwebapp appsettings set `
         --name $swaName `
         --resource-group $swaRg `
