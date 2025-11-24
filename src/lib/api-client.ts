@@ -47,50 +47,50 @@ export const api = {
   
   admin: {
     dashboard: {
-      getStats: () => 
-        fetchWithAuth<DashboardStats>('/api/admin/dashboard'),
+      getStats: () =>
+        fetchWithAuth<DashboardStats>('/api/dashboard'),
     },
-    
+
     projects: {
-      getAll: () => 
-        fetchWithAuth<Project[]>('/api/admin/projects'),
-      
-      getById: (id: string) => 
-        fetchWithAuth<Project>(`/api/admin/projects/${id}`),
-      
+      getAll: () =>
+        fetchWithAuth<Project[]>('/api/manage/projects'),
+
+      getById: (id: string) =>
+        fetchWithAuth<Project>(`/api/manage/projects/${id}`),
+
       create: (data: ProjectFormData) =>
-        fetchWithAuth<Project>('/api/admin/projects', {
+        fetchWithAuth<Project>('/api/manage/projects', {
           method: 'POST',
           body: JSON.stringify(data),
         }),
-      
+
       update: (id: string, data: ProjectFormData) =>
-        fetchWithAuth<Project>(`/api/admin/projects/${id}`, {
+        fetchWithAuth<Project>(`/api/manage/projects/${id}`, {
           method: 'PUT',
           body: JSON.stringify(data),
         }),
-      
+
       delete: (id: string) =>
-        fetchWithAuth<void>(`/api/admin/projects/${id}`, {
+        fetchWithAuth<void>(`/api/manage/projects/${id}`, {
           method: 'DELETE',
         }),
     },
-    
+
     images: {
       upload: async (file: File) => {
         const formData = new FormData();
         formData.append('file', file);
-        
-        const response = await fetch('/api/admin/images/upload', {
+
+        const response = await fetch('/api/manage/images/upload', {
           method: 'POST',
           body: formData, // Don't set Content-Type, browser sets it with boundary
           credentials: 'include',
         });
-        
+
         if (!response.ok) {
           throw new ApiError(response.status, 'Image upload failed');
         }
-        
+
         return response.json() as Promise<{ url: string; thumbnail: string }>;
       },
     },
