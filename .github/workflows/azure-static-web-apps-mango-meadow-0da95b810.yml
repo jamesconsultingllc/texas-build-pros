@@ -26,6 +26,41 @@ jobs:
         with:
           submodules: true
           lfs: false
+          fetch-depth: 0  # Need full history to find branch point
+
+      - name: Determine Source Environment
+        id: source-env
+        shell: bash
+        run: |
+          branch="${{ github.ref_name }}"
+          
+          # Find the parent branch for feature/hotfix branches
+          if [[ "$branch" == feature/* ]] || [[ "$branch" == hotfix/* ]]; then
+            # Find the branch point (where this branch diverged from)
+            parent_commit=$(git merge-base HEAD origin/develop 2>/dev/null || git merge-base HEAD origin/main 2>/dev/null || echo "")
+            
+            if [[ -n "$parent_commit" ]]; then
+              # Check if branch came from develop
+              if git merge-base --is-ancestor "$parent_commit" origin/develop 2>/dev/null; then
+                echo "source=develop" >> "$GITHUB_OUTPUT"
+                echo "source_env=Development" >> "$GITHUB_OUTPUT"
+              else
+                echo "source=main" >> "$GITHUB_OUTPUT"
+                echo "source_env=Production" >> "$GITHUB_OUTPUT"
+              fi
+            else
+              # Default to develop for feature branches
+              echo "source=develop" >> "$GITHUB_OUTPUT"
+              echo "source_env=Development" >> "$GITHUB_OUTPUT"
+            fi
+          elif [[ "$branch" == release/* ]]; then
+            # Release branches come from develop
+            echo "source=develop" >> "$GITHUB_OUTPUT"
+            echo "source_env=Development" >> "$GITHUB_OUTPUT"
+          else
+            echo "source=none" >> "$GITHUB_OUTPUT"
+            echo "source_env=none" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Determine Deployment Slot
         id: resolve-env
@@ -67,7 +102,66 @@ jobs:
           app_location: "/"
           api_location: "api"
           output_location: "dist"
-          production_branch: main  # Explicitly set production branch
+          production_branch: main
+
+      - name: Copy Environment Variables from Source
+        if: |
+          (startsWith(github.ref, 'refs/heads/feature/') || 
+           startsWith(github.ref, 'refs/heads/hotfix/') || 
+           startsWith(github.ref, 'refs/heads/release/'))
+        env:
+          AZURE_STATIC_WEB_APPS_API_TOKEN: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN_MANGO_MEADOW_0DA95B810 }}
+        shell: bash
+        run: |
+          # Install Azure CLI if not present
+          curl -sL https://aka.ms/InstallAzureCLIDeb | sudo bash
+          
+          # Get source environment settings
+          source_env="${{ steps.source-env.outputs.source_env }}"
+          target_slot="${{ steps.resolve-env.outputs.slot }}"
+          
+          echo "Copying settings from $source_env to $target_slot"
+          
+          # Get settings from source environment
+          if [[ "$source_env" == "Production" ]]; then
+            # Production has no environment suffix
+            settings=$(az staticwebapp appsettings list \
+              --name legacy-builders \
+              --resource-group legacy-builders \
+              --query "properties" -o json)
+          else
+            # Development/Staging have environment suffix
+            settings=$(az staticwebapp appsettings list \
+              --name legacy-builders \
+              --resource-group legacy-builders \
+              --environment-name "$source_env" \
+              --query "properties" -o json 2>/dev/null || echo "{}")
+          fi
+          
+          # Apply settings to new environment (if settings exist)
+          if [[ "$settings" != "{}" ]] && [[ -n "$settings" ]]; then
+            # Convert JSON to key=value pairs
+            echo "$settings" | jq -r 'to_entries[] | "\(.key)=\(.value)"' > settings.txt
+            
+            # Apply each setting to the target environment
+            while IFS= read -r setting; do
+              key="${setting%%=*}"
+              value="${setting#*=}"
+              
+              # Skip empty values
+              if [[ -n "$value" ]] && [[ "$value" != "null" ]]; then
+                az staticwebapp appsettings set \
+                  --name legacy-builders \
+                  --resource-group legacy-builders \
+                  --environment-name "$target_slot" \
+                  --setting-names "$key=$value"
+              fi
+            done < settings.txt
+            
+            echo "Settings copied successfully"
+          else
+            echo "No settings found in source environment"
+          fi
 
   close_pull_request_job:
     if: |
