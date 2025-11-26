@@ -7,44 +7,87 @@ on:
       - main
       - develop
       - 'release/**'
+      - 'feature/**'
+      - 'hotfix/**'
   pull_request:
-    types: [opened, synchronize, reopened, closed]
+    types: [closed]
     branches:
       - main
       - develop
       - 'release/**'
 
+permissions:
+  id-token: write
+  contents: read
+
 jobs:
   build_and_deploy_job:
-    if: github.event_name != 'pull_request' || github.event.action != 'closed'
+    if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     name: Build and Deploy Job
+    environment: ${{ github.ref == 'refs/heads/main' && 'production' || github.ref == 'refs/heads/develop' && 'development' || 'preview' }}
     steps:
       - uses: actions/checkout@v4
         with:
           submodules: true
           lfs: false
+          fetch-depth: 0
+
+      - name: Determine Source Environment
+        id: source-env
+        shell: bash
+        run: |
+          branch="${{ github.ref_name }}"
+          
+          if [[ "$branch" == feature/* ]] || [[ "$branch" == hotfix/* ]]; then
+            parent_commit=$(git merge-base HEAD origin/develop 2>/dev/null || git merge-base HEAD origin/main 2>/dev/null || echo "")
+            
+            if [[ -n "$parent_commit" ]]; then
+              if git merge-base --is-ancestor "$parent_commit" origin/develop 2>/dev/null; then
+                echo "source=develop" >> "$GITHUB_OUTPUT"
+                echo "source_env=development" >> "$GITHUB_OUTPUT"
+              else
+                echo "source=main" >> "$GITHUB_OUTPUT"
+                echo "source_env=production" >> "$GITHUB_OUTPUT"
+              fi
+            else
+              echo "source=develop" >> "$GITHUB_OUTPUT"
+              echo "source_env=development" >> "$GITHUB_OUTPUT"
+            fi
+          elif [[ "$branch" == release/* ]]; then
+            echo "source=develop" >> "$GITHUB_OUTPUT"
+            echo "source_env=development" >> "$GITHUB_OUTPUT"
+          else
+            echo "source=none" >> "$GITHUB_OUTPUT"
+            echo "source_env=none" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Determine Deployment Slot
         id: resolve-env
         shell: bash
         env:
           REF_NAME: ${{ github.ref_name }}
-          HEAD_REF: ${{ github.head_ref }}
         run: |
-          branch="${HEAD_REF:-$REF_NAME}"
+          branch="${REF_NAME}"
+          
           if [[ "$branch" == "main" ]]; then
             echo "environment=Production" >> "$GITHUB_OUTPUT"
             echo "slot=" >> "$GITHUB_OUTPUT"
           elif [[ "$branch" == "develop" ]]; then
             echo "environment=Development" >> "$GITHUB_OUTPUT"
-            echo "slot=dev" >> "$GITHUB_OUTPUT"
+            echo "slot=development" >> "$GITHUB_OUTPUT"
           elif [[ "$branch" == release/* ]]; then
             echo "environment=Staging" >> "$GITHUB_OUTPUT"
             echo "slot=staging" >> "$GITHUB_OUTPUT"
+          elif [[ "$branch" == feature/* ]] || [[ "$branch" == hotfix/* ]]; then
+            # SWA removes all non-alphanumeric characters and truncates
+            sanitized_branch=$(echo "$branch" | sed 's/[^a-zA-Z0-9]//g' | cut -c1-20 | tr '[:upper:]' '[:lower:]')
+            echo "environment=$sanitized_branch" >> "$GITHUB_OUTPUT"
+            echo "slot=$sanitized_branch" >> "$GITHUB_OUTPUT"
           else
-            echo "environment=Preview" >> "$GITHUB_OUTPUT"
-            echo "slot=" >> "$GITHUB_OUTPUT"
+            sanitized_branch=$(echo "$branch" | sed 's/[^a-zA-Z0-9]//g' | cut -c1-20 | tr '[:upper:]' '[:lower:]')
+            echo "environment=$sanitized_branch" >> "$GITHUB_OUTPUT"
+            echo "slot=$sanitized_branch" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Build And Deploy
@@ -58,9 +101,100 @@ jobs:
           app_location: "/"
           api_location: "api"
           output_location: "dist"
+          production_branch: main
+
+      - name: Azure Login with OIDC
+        if: |
+          (startsWith(github.ref, 'refs/heads/feature/') || 
+           startsWith(github.ref, 'refs/heads/hotfix/') || 
+           startsWith(github.ref, 'refs/heads/release/')) &&
+          steps.source-env.outputs.source_env != 'none'
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Copy Environment Variables from Source
+        if: |
+          (startsWith(github.ref, 'refs/heads/feature/') || 
+           startsWith(github.ref, 'refs/heads/hotfix/') || 
+           startsWith(github.ref, 'refs/heads/release/')) &&
+          steps.source-env.outputs.source_env != 'none'
+        shell: bash
+        run: |
+          source_env="${{ steps.source-env.outputs.source_env }}"
+          
+          echo "Finding target environment..."
+          
+          # List environments and find the one matching our branch pattern
+          branch="${{ github.ref_name }}"
+          branch_pattern=$(echo "$branch" | sed 's/[^a-zA-Z0-9]//g' | tr '[:upper:]' '[:lower:]')
+          
+          # Get the actual environment name from SWA
+          target_slot=$(az staticwebapp environment list \
+            --name legacy-builders \
+            --resource-group legacy-builders \
+            --query "[?starts_with(name, '${branch_pattern:0:10}')].name | [0]" -o tsv)
+          
+          if [[ -z "$target_slot" ]]; then
+            echo "Could not find target environment matching pattern: $branch_pattern"
+            echo "Available environments:"
+            az staticwebapp environment list \
+              --name legacy-builders \
+              --resource-group legacy-builders \
+              --query "[].name" -o tsv
+            exit 0  # Don't fail, just skip
+          fi
+          
+          echo "Copying settings from $source_env to $target_slot"
+          
+          if [[ "$source_env" == "production" ]]; then
+            settings=$(az staticwebapp appsettings list \
+              --name legacy-builders \
+              --resource-group legacy-builders \
+              --query "properties" -o json)
+          else
+            settings=$(az staticwebapp appsettings list \
+              --name legacy-builders \
+              --resource-group legacy-builders \
+              --environment-name "$source_env" \
+              --query "properties" -o json 2>/dev/null || echo "{}")
+          fi
+          
+          echo "Retrieved settings: $settings"
+          
+          if [[ "$settings" != "{}" ]] && [[ -n "$settings" ]] && [[ "$settings" != "null" ]]; then
+            settings_file="${RUNNER_TEMP}/settings.txt"
+            echo "$settings" | jq -r 'to_entries[] | "\(.key)=\(.value)"' > "$settings_file"
+            
+            while IFS= read -r setting; do
+              key="${setting%%=*}"
+              value="${setting#*=}"
+              
+              if [[ -n "$value" ]] && [[ "$value" != "null" ]]; then
+                echo "Setting $key for $target_slot"
+                az staticwebapp appsettings set \
+                  --name legacy-builders \
+                  --resource-group legacy-builders \
+                  --environment-name "$target_slot" \
+                  --setting-names "$key=$value"
+              fi
+            done < "$settings_file"
+            
+            echo "Settings copied successfully"
+          else
+            echo "No settings found in source environment or settings are empty"
+          fi
 
   close_pull_request_job:
-    if: github.event_name == 'pull_request' && github.event.action == 'closed'
+    if: |
+      github.event_name == 'pull_request' && 
+      github.event.action == 'closed' &&
+      github.event.pull_request.merged == true &&
+      (startsWith(github.head_ref, 'feature/') || 
+       startsWith(github.head_ref, 'hotfix/') ||
+       (startsWith(github.head_ref, 'release/') && github.base_ref == 'develop'))
     runs-on: ubuntu-latest
     name: Close Preview Environment
     steps:
