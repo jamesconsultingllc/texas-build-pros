@@ -124,7 +124,28 @@ jobs:
         shell: bash
         run: |
           source_env="${{ steps.source-env.outputs.source_env }}"
-          target_slot="${{ steps.resolve-env.outputs.slot }}"
+          
+          echo "Finding target environment..."
+          
+          # List environments and find the one matching our branch pattern
+          branch="${{ github.ref_name }}"
+          branch_pattern=$(echo "$branch" | sed 's/[^a-zA-Z0-9]//g' | tr '[:upper:]' '[:lower:]')
+          
+          # Get the actual environment name from SWA
+          target_slot=$(az staticwebapp environment list \
+            --name legacy-builders \
+            --resource-group legacy-builders \
+            --query "[?starts_with(name, '${branch_pattern:0:10}')].name | [0]" -o tsv)
+          
+          if [[ -z "$target_slot" ]]; then
+            echo "Could not find target environment matching pattern: $branch_pattern"
+            echo "Available environments:"
+            az staticwebapp environment list \
+              --name legacy-builders \
+              --resource-group legacy-builders \
+              --query "[].name" -o tsv
+            exit 0  # Don't fail, just skip
+          fi
           
           echo "Copying settings from $source_env to $target_slot"
           
@@ -144,16 +165,13 @@ jobs:
           echo "Retrieved settings: $settings"
           
           if [[ "$settings" != "{}" ]] && [[ -n "$settings" ]] && [[ "$settings" != "null" ]]; then
-            # Write to temp file with proper permissions
             settings_file="${RUNNER_TEMP}/settings.txt"
             echo "$settings" | jq -r 'to_entries[] | "\(.key)=\(.value)"' > "$settings_file"
             
-            # Apply each setting to the target environment
             while IFS= read -r setting; do
               key="${setting%%=*}"
               value="${setting#*=}"
               
-              # Skip empty values
               if [[ -n "$value" ]] && [[ "$value" != "null" ]]; then
                 echo "Setting $key for $target_slot"
                 az staticwebapp appsettings set \
