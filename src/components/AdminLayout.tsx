@@ -22,8 +22,8 @@ const AdminLayout = ({ children }: AdminLayoutProps) => {
       {/* Sidebar */}
       <aside className="w-64 bg-navy text-white flex flex-col">
         <div className="p-6 border-b border-white/10">
-          <Link to="/" className="flex items-center gap-2 h-20 mt-5">
-            <Logo className="brightness-0 invert" />
+          <Link to="/" className="flex items-center gap-2">
+            <Logo className="h-8 brightness-0 invert" />
           </Link>
         </div>
 

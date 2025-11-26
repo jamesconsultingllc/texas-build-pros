@@ -11,7 +11,6 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
 import { ProjectFormData } from '@/types/project';
-import { useAdminProject, useCreateProject, useUpdateProject, useImageUpload } from '@/hooks/use-projects';
 
 interface UploadedImage {
   id: string;
@@ -25,12 +24,9 @@ const ProjectForm = () => {
   const navigate = useNavigate();
   const isEditing = Boolean(id);
 
-  // Hooks
-  const { data: existingProject, isLoading } = useAdminProject(id);
-  const createProject = useCreateProject();
-  const updateProject = useUpdateProject();
-  const uploadImage = useImageUpload();
-
+  const [isLoading, setIsLoading] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  
   const [formData, setFormData] = useState<ProjectFormData>({
     title: '',
     location: '',
@@ -50,72 +46,67 @@ const ProjectForm = () => {
   const [beforeImages, setBeforeImages] = useState<UploadedImage[]>([]);
   const [afterImages, setAfterImages] = useState<UploadedImage[]>([]);
 
-  // Load existing project data when editing
   useEffect(() => {
-    if (existingProject) {
-      setFormData({
-        title: existingProject.title,
-        location: existingProject.location,
-        shortDescription: existingProject.shortDescription,
-        fullDescription: existingProject.fullDescription,
-        scopeOfWork: existingProject.scopeOfWork,
-        challenges: existingProject.challenges,
-        outcomes: existingProject.outcomes,
-        purchaseDate: existingProject.purchaseDate,
-        completionDate: existingProject.completionDate,
-        budget: existingProject.budget,
-        finalCost: existingProject.finalCost,
-        squareFootage: existingProject.squareFootage,
-        status: existingProject.status === 'archived' ? 'draft' : existingProject.status,
-      });
-      // TODO: Load existing images from project data
+    if (isEditing) {
+      fetchProject();
     }
-  }, [existingProject]);
+  }, [isEditing]);
+
+  const fetchProject = async () => {
+    setIsLoading(true);
+    try {
+      // TODO: Fetch from Azure Cosmos DB API
+      // const response = await fetch(`/api/admin/projects/${id}`);
+      // const data = await response.json();
+      // setFormData(data);
+      // Load existing images...
+    } catch (error) {
+      console.error('Failed to fetch project:', error);
+      toast.error('Failed to load project');
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const handleSubmit = async (publishNow: boolean) => {
-    // Title is always required (for both draft and publish)
-    if (!formData.title) {
-      toast.error('Project title is required');
+    // Basic validation
+    if (!formData.title || !formData.location || !formData.shortDescription) {
+      toast.error('Please fill in all required fields');
       return;
     }
 
-    // Additional validation when publishing
-    if (publishNow) {
-      if (!formData.location || !formData.shortDescription) {
-        toast.error('Please fill in all required fields before publishing');
-        return;
-      }
-
-      if (afterImages.length === 0) {
-        toast.error('Please upload at least one after image before publishing');
-        return;
-      }
+    if (afterImages.length === 0) {
+      toast.error('Please upload at least one after image');
+      return;
     }
 
+    setIsSaving(true);
     try {
-      const submitData: ProjectFormData = {
+      const submitData = {
         ...formData,
         status: publishNow ? 'published' : 'draft',
       };
 
-      // TODO: Upload images first if there are new images
-      // For now, we'll save without images and implement image upload separately
+      // TODO: Upload images first, then submit form data
+      // 1. Upload images to Azure Storage/CDN
+      // 2. Get URLs back
+      // 3. Submit project data with image URLs to Azure Cosmos DB API
+      
+      // const response = await fetch(`/api/admin/projects${isEditing ? `/${id}` : ''}`, {
+      //   method: isEditing ? 'PUT' : 'POST',
+      //   headers: { 'Content-Type': 'application/json' },
+      //   body: JSON.stringify(submitData),
+      // });
 
-      if (isEditing && id) {
-        await updateProject.mutateAsync({ id, data: submitData });
-      } else {
-        await createProject.mutateAsync(submitData);
-      }
-
-      // Success toasts and navigation are handled by the mutation hooks
+      toast.success(`Project ${publishNow ? 'published' : 'saved as draft'} successfully`);
+      navigate('/admin/projects');
     } catch (error) {
-      // Error toasts are handled by the mutation hooks
-      // Additional error handling can be done here if needed
       console.error('Failed to save project:', error);
+      toast.error('Failed to save project');
+    } finally {
+      setIsSaving(false);
     }
   };
-
-  const isSaving = createProject.isPending || updateProject.isPending;
 
   if (isLoading) {
     return (

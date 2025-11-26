@@ -9,7 +9,7 @@
     "build:dev": "vite build --mode development",
     "lint": "eslint .",
     "preview": "vite preview",
-    "swa:start": "swa start http://localhost:8080 --run \"npm run dev\" --api-devserver-url  http://localhost:7233",
+    "swa:start": "swa start dist --run \"npm run dev\"",
     "swa:build": "npm run build && swa start dist"
   },
   "dependencies": {
