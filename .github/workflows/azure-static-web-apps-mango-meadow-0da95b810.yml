@@ -2,22 +2,6 @@ name: Azure Static Web Apps CI/CD
 
 on:
   workflow_dispatch:
-    inputs:
-      deploy_all:
-        description: 'Deploy both SWA and API'
-        required: false
-        default: false
-        type: boolean
-      deploy_swa:
-        description: 'Force deploy Static Web App'
-        required: false
-        default: false
-        type: boolean
-      deploy_api:
-        description: 'Force deploy API'
-        required: false
-        default: false
-        type: boolean
   push:
     branches:
       - main
@@ -25,15 +9,6 @@ on:
       - 'release/**'
       - 'feature/**'
       - 'hotfix/**'
-    paths:
-      - 'src/**'
-      - 'public/**'
-      - 'api/**'
-      - 'package.json'
-      - 'vite.config.ts'
-      - 'tsconfig*.json'
-      - 'staticwebapp.config.json'
-      - '.github/workflows/azure-static-web-apps-mango-meadow-0da95b810.yml'
   pull_request:
     types: [closed]
     branches:
@@ -46,40 +21,17 @@ permissions:
   contents: read
 
 jobs:
-  detect_changes:
+  build_and_deploy_job:
     if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
-    name: Detect Changes
-    outputs:
-      swa_changed: ${{ steps.changes.outputs.swa_changed }}
-      api_changed: ${{ steps.changes.outputs.api_changed }}
-      workflow_changed: ${{ steps.changes.outputs.workflow_changed }}
-      deployment_slot: ${{ steps.resolve-env.outputs.slot }}
-      functions_app: ${{ steps.resolve-env.outputs.functions_app }}
-      resource_group: ${{ steps.resolve-env.outputs.resource_group }}
-      source_env: ${{ steps.source-env.outputs.source_env }}
+    name: Build and Deploy Job
+    environment: ${{ github.ref == 'refs/heads/main' && 'production' || github.ref == 'refs/heads/develop' && 'development' || 'preview' }}
     steps:
       - uses: actions/checkout@v4
         with:
+          submodules: true
+          lfs: false
           fetch-depth: 0
-
-      - name: Detect file changes
-        id: changes
-        uses: dorny/paths-filter@v3
-        with:
-          filters: |
-            swa_changed:
-              - 'src/**'
-              - 'public/**'
-              - 'package.json'
-              - 'vite.config.ts'
-              - 'tsconfig*.json'
-              - 'staticwebapp.config.json'
-              - 'index.html'
-            api_changed:
-              - 'api/**'
-            workflow_changed:
-              - '.github/workflows/azure-static-web-apps-mango-meadow-0da95b810.yml'
 
       - name: Determine Source Environment
         id: source-env
@@ -121,118 +73,42 @@ jobs:
           if [[ "$branch" == "main" ]]; then
             echo "environment=Production" >> "$GITHUB_OUTPUT"
             echo "slot=" >> "$GITHUB_OUTPUT"
-            echo "functions_app=legacy-builders-api-prod" >> "$GITHUB_OUTPUT"
-            echo "resource_group=legacy-builders-prod-rg" >> "$GITHUB_OUTPUT"
           elif [[ "$branch" == "develop" ]]; then
             echo "environment=Development" >> "$GITHUB_OUTPUT"
             echo "slot=development" >> "$GITHUB_OUTPUT"
-            echo "functions_app=legacy-builders-api-dev" >> "$GITHUB_OUTPUT"
-            echo "resource_group=legacy-builders-dev-rg" >> "$GITHUB_OUTPUT"
           elif [[ "$branch" == release/* ]]; then
             echo "environment=Staging" >> "$GITHUB_OUTPUT"
             echo "slot=staging" >> "$GITHUB_OUTPUT"
-            echo "functions_app=legacy-builders-api-staging" >> "$GITHUB_OUTPUT"
-            echo "resource_group=legacy-builders-staging-rg" >> "$GITHUB_OUTPUT"
           elif [[ "$branch" == feature/* ]] || [[ "$branch" == hotfix/* ]]; then
+            # SWA removes all non-alphanumeric characters and truncates
             sanitized_branch=$(echo "$branch" | sed 's/[^a-zA-Z0-9]//g' | cut -c1-20 | tr '[:upper:]' '[:lower:]')
             echo "environment=$sanitized_branch" >> "$GITHUB_OUTPUT"
             echo "slot=$sanitized_branch" >> "$GITHUB_OUTPUT"
-            echo "functions_app=legacy-builders-api-dev" >> "$GITHUB_OUTPUT"
-            echo "resource_group=legacy-builders-dev-rg" >> "$GITHUB_OUTPUT"
           else
             sanitized_branch=$(echo "$branch" | sed 's/[^a-zA-Z0-9]//g' | cut -c1-20 | tr '[:upper:]' '[:lower:]')
             echo "environment=$sanitized_branch" >> "$GITHUB_OUTPUT"
             echo "slot=$sanitized_branch" >> "$GITHUB_OUTPUT"
-            echo "functions_app=legacy-builders-api-dev" >> "$GITHUB_OUTPUT"
-            echo "resource_group=legacy-builders-dev-rg" >> "$GITHUB_OUTPUT"
           fi
 
-  deploy_swa:
-    needs: detect_changes
-    if: |
-      always() &&
-      github.event_name != 'pull_request' &&
-      (needs.detect_changes.result == 'skipped' ||
-       needs.detect_changes.outputs.swa_changed == 'true' || 
-       needs.detect_changes.outputs.workflow_changed == 'true' ||
-       github.event.inputs.deploy_all == 'true' ||
-       github.event.inputs.deploy_swa == 'true')
-    runs-on: ubuntu-latest
-    name: Deploy Static Web App
-    environment: ${{ github.ref == 'refs/heads/main' && 'production' || github.ref == 'refs/heads/develop' && 'development' || 'preview' }}
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          submodules: true
-          lfs: false
-
-      - name: Build And Deploy Static Web App
+      - name: Build And Deploy
+        id: builddeploy
         uses: Azure/static-web-apps-deploy@v1
         with:
           azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN_MANGO_MEADOW_0DA95B810 }}
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           action: upload
-          deployment_environment: ${{ needs.detect_changes.outputs.deployment_slot }}
+          deployment_environment: ${{ steps.resolve-env.outputs.slot }}
           app_location: "/"
-          api_location: ""
+          api_location: "api"
           output_location: "dist"
           production_branch: main
 
-  deploy_api:
-    needs: detect_changes
-    if: |
-      always() &&
-      github.event_name != 'pull_request' &&
-      (needs.detect_changes.result == 'skipped' ||
-       needs.detect_changes.outputs.api_changed == 'true' || 
-       needs.detect_changes.outputs.workflow_changed == 'true' ||
-       github.event.inputs.deploy_all == 'true' ||
-       github.event.inputs.deploy_api == 'true')
-    runs-on: ubuntu-latest
-    name: Deploy API
-    environment: ${{ github.ref == 'refs/heads/main' && 'production' || github.ref == 'refs/heads/develop' && 'development' || 'preview' }}
-    steps:
-      - uses: actions/checkout@v4
-
       - name: Azure Login with OIDC
-        uses: azure/login@v2
-        with:
-          client-id: ${{ secrets.AZURE_CLIENT_ID }}
-          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
-          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-
-      - name: Setup .NET
-        uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: '8.0.x'
-
-      - name: Build API
-        run: |
-          cd api
-          dotnet restore
-          dotnet build --configuration Release --no-restore
-          dotnet publish --configuration Release --no-build --output ./publish
-
-      - name: Deploy API to Azure Functions
-        uses: Azure/functions-action@v1
-        with:
-          app-name: ${{ needs.detect_changes.outputs.functions_app }}
-          package: 'api/publish'
-
-  copy_environment_settings:
-    needs: [detect_changes, deploy_swa]
-    if: |
-      always() &&
-      needs.deploy_swa.result == 'success' &&
-      needs.detect_changes.outputs.source_env != 'none' &&
-      (startsWith(github.ref, 'refs/heads/feature/') || 
-       startsWith(github.ref, 'refs/heads/hotfix/') || 
-       startsWith(github.ref, 'refs/heads/release/'))
-    runs-on: ubuntu-latest
-    name: Copy Environment Settings
-    environment: ${{ github.ref == 'refs/heads/main' && 'production' || github.ref == 'refs/heads/develop' && 'development' || 'preview' }}
-    steps:
-      - name: Azure Login with OIDC
+        if: |
+          (startsWith(github.ref, 'refs/heads/feature/') || 
+           startsWith(github.ref, 'refs/heads/hotfix/') || 
+           startsWith(github.ref, 'refs/heads/release/')) &&
+          steps.source-env.outputs.source_env != 'none'
         uses: azure/login@v2
         with:
           client-id: ${{ secrets.AZURE_CLIENT_ID }}
@@ -240,15 +116,22 @@ jobs:
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
       - name: Copy Environment Variables from Source
+        if: |
+          (startsWith(github.ref, 'refs/heads/feature/') || 
+           startsWith(github.ref, 'refs/heads/hotfix/') || 
+           startsWith(github.ref, 'refs/heads/release/')) &&
+          steps.source-env.outputs.source_env != 'none'
         shell: bash
         run: |
-          source_env="${{ needs.detect_changes.outputs.source_env }}"
+          source_env="${{ steps.source-env.outputs.source_env }}"
           
           echo "Finding target environment..."
           
+          # List environments and find the one matching our branch pattern
           branch="${{ github.ref_name }}"
           branch_pattern=$(echo "$branch" | sed 's/[^a-zA-Z0-9]//g' | tr '[:upper:]' '[:lower:]')
           
+          # Get the actual environment name from SWA
           target_slot=$(az staticwebapp environment list \
             --name legacy-builders \
             --resource-group legacy-builders \
@@ -261,7 +144,7 @@ jobs:
               --name legacy-builders \
               --resource-group legacy-builders \
               --query "[].name" -o tsv
-            exit 0
+            exit 0  # Don't fail, just skip
           fi
           
           echo "Copying settings from $source_env to $target_slot"
@@ -316,7 +199,6 @@ jobs:
     name: Close Preview Environment
     steps:
       - name: Close Pull Request
-        continue-on-error: true
         uses: Azure/static-web-apps-deploy@v1
         with:
           azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN_MANGO_MEADOW_0DA95B810 }}
