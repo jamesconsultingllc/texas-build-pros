@@ -207,16 +207,16 @@ jobs:
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
-      - name: Find Environment to Delete
-        id: find-env
+      - name: Find and Delete Environment
+        id: delete-env
         shell: bash
+        continue-on-error: true
         run: |
           branch="${{ github.event.pull_request.head.ref }}"
           branch_pattern=$(echo "$branch" | sed 's/[^a-zA-Z0-9]//g' | cut -c1-20 | tr '[:upper:]' '[:lower:]')
           
           echo "Looking for environment matching pattern: $branch_pattern"
           
-          # Get the actual environment name from SWA
           target_slot=$(az staticwebapp environment list \
             --name legacy-builders \
             --resource-group legacy-builders \
@@ -224,17 +224,20 @@ jobs:
           
           if [[ -n "$target_slot" ]]; then
             echo "Found environment to delete: $target_slot"
-            echo "environment_name=$target_slot" >> "$GITHUB_OUTPUT"
-            echo "found=true" >> "$GITHUB_OUTPUT"
+            az staticwebapp environment delete \
+              --name legacy-builders \
+              --resource-group legacy-builders \
+              --environment-name "$target_slot" \
+              --yes
+            echo "deleted=true" >> "$GITHUB_OUTPUT"
           else
-            echo "No environment found matching pattern: $branch_pattern"
-            echo "found=false" >> "$GITHUB_OUTPUT"
+            echo "No environment found"
+            echo "deleted=false" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Close Pull Request Environment
-        if: steps.find-env.outputs.found == 'true'
+      - name: Fallback - Close with SWA Action
+        if: steps.delete-env.outputs.deleted != 'true'
         uses: Azure/static-web-apps-deploy@v1
         with:
           azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN_MANGO_MEADOW_0DA95B810 }}
           action: close
-          deployment_environment: ${{ steps.find-env.outputs.environment_name }}
