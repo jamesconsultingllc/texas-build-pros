@@ -43,22 +43,44 @@ var host = new HostBuilder()
         // Register custom telemetry service
         services.AddSingleton<ITelemetryService, TelemetryService>();
 
-        // Configure Cosmos DB with Managed Identity
+        // Configure Cosmos DB with either Connection String or Managed Identity
+        var cosmosConnectionString = Environment.GetEnvironmentVariable("CosmosDbConnectionString");
         var cosmosEndpoint = Environment.GetEnvironmentVariable("CosmosDbEndpoint");
         var databaseName = Environment.GetEnvironmentVariable("CosmosDbDatabaseName") ?? "LegacyBuilders";
         var containerName = Environment.GetEnvironmentVariable("CosmosDbContainerName") ?? "projects";
 
-        if (string.IsNullOrEmpty(cosmosEndpoint)) return;
-        
-        services.AddSingleton(s => new CosmosClient(cosmosEndpoint, 
-            new DefaultAzureCredential(), 
-            new CosmosClientOptions
+        services.AddSingleton(s =>
+        {
+            CosmosClient cosmosClient;
+            var cosmosClientOptions = new CosmosClientOptions
             {
                 SerializerOptions = new CosmosSerializationOptions
                 {
                     PropertyNamingPolicy = CosmosPropertyNamingPolicy.CamelCase
                 }
-            }));
+            };
+
+            // Prefer connection string if available (for preview environments and local development)
+            if (!string.IsNullOrEmpty(cosmosConnectionString))
+            {
+                cosmosClient = new CosmosClient(cosmosConnectionString, cosmosClientOptions);
+            }
+            else if (!string.IsNullOrEmpty(cosmosEndpoint))
+            {
+                // Use Managed Identity for production environment
+                cosmosClient = new CosmosClient(cosmosEndpoint, 
+                    new DefaultAzureCredential(), 
+                    cosmosClientOptions);
+            }
+            else
+            {
+                throw new InvalidOperationException(
+                    "Neither CosmosDbConnectionString nor CosmosDbEndpoint environment variable is configured. " +
+                    "Please set CosmosDbConnectionString for preview/local environments or CosmosDbEndpoint for production.");
+            }
+
+            return cosmosClient;
+        });
 
         services.AddSingleton<ICosmosDbService>(s =>
         {
