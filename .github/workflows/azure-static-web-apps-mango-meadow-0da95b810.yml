@@ -80,11 +80,12 @@ jobs:
             echo "environment=Staging" >> "$GITHUB_OUTPUT"
             echo "slot=staging" >> "$GITHUB_OUTPUT"
           elif [[ "$branch" == feature/* ]] || [[ "$branch" == hotfix/* ]]; then
-            sanitized_branch=$(echo "$branch" | sed 's/[^a-zA-Z0-9]/-/g' | cut -c1-20)
+            # SWA removes all non-alphanumeric characters and truncates
+            sanitized_branch=$(echo "$branch" | sed 's/[^a-zA-Z0-9]//g' | cut -c1-20 | tr '[:upper:]' '[:lower:]')
             echo "environment=$sanitized_branch" >> "$GITHUB_OUTPUT"
             echo "slot=$sanitized_branch" >> "$GITHUB_OUTPUT"
           else
-            sanitized_branch=$(echo "$branch" | sed 's/[^a-zA-Z0-9]/-/g' | cut -c1-20)
+            sanitized_branch=$(echo "$branch" | sed 's/[^a-zA-Z0-9]//g' | cut -c1-20 | tr '[:upper:]' '[:lower:]')
             echo "environment=$sanitized_branch" >> "$GITHUB_OUTPUT"
             echo "slot=$sanitized_branch" >> "$GITHUB_OUTPUT"
           fi
