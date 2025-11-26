@@ -13,15 +13,18 @@ const Header = () => {
     <header className="bg-background border-b border-border">
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-center md:justify-between h-40 relative">
-          <div className="flex items-center">
-            <Logo className="h-40 w-auto text-foreground" ariaLabel="Legacy Builders" />
-          </div>
+              <div className="flex items-center">
+                <a href="/" aria-label="Go to Home">
+                  <Logo className="h-40 w-auto text-foreground" ariaLabel="Legacy Builders" />
+                </a>
+              </div>
           
           {/* Desktop Navigation */}
-          <nav className="hidden md:flex items-center space-x-8 text-base md:text-lg lg:text-2xl">
-            <a href="/portfolio" className="text-foreground hover:text-gold transition-colors font-medium">
-              Portfolio
-            </a>
+              <nav className="hidden md:flex items-center space-x-8 text-base md:text-lg lg:text-2xl">
+                <a href="/" className="text-foreground hover:text-gold transition-colors font-medium">
+                  Home
+                </a>
+                {/* Portfolio link temporarily hidden */}
             <a href="#services" className="text-foreground hover:text-gold transition-colors font-medium">
               Services
             </a>
@@ -65,14 +68,15 @@ const Header = () => {
         {/* Mobile Navigation */}
         {isMenuOpen && (
           <nav className="md:hidden py-4 border-t border-border">
-            <div className="flex flex-col space-y-4">
-              <a 
-                href="/portfolio" 
-                className="text-foreground hover:text-gold transition-colors font-medium text-lg py-2"
-                onClick={closeMenu}
-              >
-                Portfolio
-              </a>
+                <div className="flex flex-col space-y-4">
+                  <a 
+                    href="/" 
+                    className="text-foreground hover:text-gold transition-colors font-medium text-lg py-2"
+                    onClick={closeMenu}
+                  >
+                    Home
+                  </a>
+                  {/* Portfolio link temporarily hidden */}
               <a 
                 href="#services" 
                 className="text-foreground hover:text-gold transition-colors font-medium text-lg py-2"
