@@ -102,6 +102,8 @@ jobs:
           api_location: "api"
           output_location: "dist"
           production_branch: main
+        env:
+          VITE_APPINSIGHTS_CONNECTION_STRING: ${{ secrets.APPLICATIONINSIGHTS_CONNECTION_STRING }}
 
       - name: Azure Login with OIDC
         if: |
@@ -192,13 +194,49 @@ jobs:
       github.event_name == 'pull_request' && 
       github.event.action == 'closed' &&
       github.event.pull_request.merged == true &&
-      (startsWith(github.head_ref, 'feature/') || 
-       startsWith(github.head_ref, 'hotfix/') ||
-       (startsWith(github.head_ref, 'release/') && github.base_ref == 'develop'))
+      (startsWith(github.event.pull_request.head.ref, 'feature/') || 
+       startsWith(github.event.pull_request.head.ref, 'hotfix/') ||
+       (startsWith(github.event.pull_request.head.ref, 'release/') && github.event.pull_request.base.ref == 'develop'))
     runs-on: ubuntu-latest
     name: Close Preview Environment
     steps:
-      - name: Close Pull Request
+      - name: Azure Login with OIDC
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Find and Delete Environment
+        id: delete-env
+        shell: bash
+        continue-on-error: true
+        run: |
+          branch="${{ github.event.pull_request.head.ref }}"
+          branch_pattern=$(echo "$branch" | sed 's/[^a-zA-Z0-9]//g' | cut -c1-20 | tr '[:upper:]' '[:lower:]')
+          
+          echo "Looking for environment matching pattern: $branch_pattern"
+          
+          target_slot=$(az staticwebapp environment list \
+            --name legacy-builders \
+            --resource-group legacy-builders \
+            --query "[?starts_with(name, '${branch_pattern:0:10}')].name | [0]" -o tsv)
+          
+          if [[ -n "$target_slot" ]]; then
+            echo "Found environment to delete: $target_slot"
+            az staticwebapp environment delete \
+              --name legacy-builders \
+              --resource-group legacy-builders \
+              --environment-name "$target_slot" \
+              --yes
+            echo "deleted=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "No environment found"
+            echo "deleted=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Fallback - Close with SWA Action
+        if: steps.delete-env.outputs.deleted != 'true'
         uses: Azure/static-web-apps-deploy@v1
         with:
           azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN_MANGO_MEADOW_0DA95B810 }}
