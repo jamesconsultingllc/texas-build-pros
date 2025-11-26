@@ -6,7 +6,17 @@ on:
       deploy_all:
         description: 'Deploy both SWA and API'
         required: false
-        default: true
+        default: false
+        type: boolean
+      deploy_swa:
+        description: 'Force deploy Static Web App'
+        required: false
+        default: false
+        type: boolean
+      deploy_api:
+        description: 'Force deploy API'
+        required: false
+        default: false
         type: boolean
   push:
     branches:
@@ -44,6 +54,10 @@ jobs:
       swa_changed: ${{ steps.changes.outputs.swa_changed }}
       api_changed: ${{ steps.changes.outputs.api_changed }}
       workflow_changed: ${{ steps.changes.outputs.workflow_changed }}
+      deployment_slot: ${{ steps.resolve-env.outputs.slot }}
+      functions_app: ${{ steps.resolve-env.outputs.functions_app }}
+      resource_group: ${{ steps.resolve-env.outputs.resource_group }}
+      source_env: ${{ steps.source-env.outputs.source_env }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -66,26 +80,6 @@ jobs:
               - 'api/**'
             workflow_changed:
               - '.github/workflows/azure-static-web-apps-mango-meadow-0da95b810.yml'
-
-  build_and_deploy_job:
-    needs: detect_changes
-    if: |
-      always() &&
-      github.event_name != 'pull_request' && 
-      (needs.detect_changes.result == 'skipped' ||
-       needs.detect_changes.outputs.swa_changed == 'true' || 
-       needs.detect_changes.outputs.api_changed == 'true' || 
-       needs.detect_changes.outputs.workflow_changed == 'true' ||
-       github.event_name == 'workflow_dispatch')
-    runs-on: ubuntu-latest
-    name: Build and Deploy Job
-    environment: ${{ github.ref == 'refs/heads/main' && 'production' || github.ref == 'refs/heads/develop' && 'development' || 'preview' }}
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          submodules: true
-          lfs: false
-          fetch-depth: 0
 
       - name: Determine Source Environment
         id: source-env
@@ -153,44 +147,54 @@ jobs:
             echo "resource_group=legacy-builders-dev-rg" >> "$GITHUB_OUTPUT"
           fi
 
-      # Deploy SWA only if SWA files changed or workflow changed or manual trigger
+  deploy_swa:
+    needs: detect_changes
+    if: |
+      always() &&
+      github.event_name != 'pull_request' &&
+      (needs.detect_changes.result == 'skipped' ||
+       needs.detect_changes.outputs.swa_changed == 'true' || 
+       needs.detect_changes.outputs.workflow_changed == 'true' ||
+       github.event.inputs.deploy_all == 'true' ||
+       github.event.inputs.deploy_swa == 'true')
+    runs-on: ubuntu-latest
+    name: Deploy Static Web App
+    environment: ${{ github.ref == 'refs/heads/main' && 'production' || github.ref == 'refs/heads/develop' && 'development' || 'preview' }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+          lfs: false
+
       - name: Build And Deploy Static Web App
-        id: builddeploy
-        if: |
-          needs.detect_changes.result == 'skipped' ||
-          needs.detect_changes.outputs.swa_changed == 'true' || 
-          needs.detect_changes.outputs.workflow_changed == 'true' ||
-          github.event.inputs.deploy_all == 'true'
         uses: Azure/static-web-apps-deploy@v1
         with:
           azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN_MANGO_MEADOW_0DA95B810 }}
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           action: upload
-          deployment_environment: ${{ steps.resolve-env.outputs.slot }}
+          deployment_environment: ${{ needs.detect_changes.outputs.deployment_slot }}
           app_location: "/"
-          api_location: ""  # Deploy API separately
+          api_location: ""
           output_location: "dist"
           production_branch: main
 
-      - name: Skip SWA Deploy
-        if: |
-          needs.detect_changes.result != 'skipped' &&
-          needs.detect_changes.outputs.swa_changed != 'true' && 
-          needs.detect_changes.outputs.workflow_changed != 'true' &&
-          github.event.inputs.deploy_all != 'true'
-        run: echo "Skipping SWA deployment - no frontend changes detected"
+  deploy_api:
+    needs: detect_changes
+    if: |
+      always() &&
+      github.event_name != 'pull_request' &&
+      (needs.detect_changes.result == 'skipped' ||
+       needs.detect_changes.outputs.api_changed == 'true' || 
+       needs.detect_changes.outputs.workflow_changed == 'true' ||
+       github.event.inputs.deploy_all == 'true' ||
+       github.event.inputs.deploy_api == 'true')
+    runs-on: ubuntu-latest
+    name: Deploy API
+    environment: ${{ github.ref == 'refs/heads/main' && 'production' || github.ref == 'refs/heads/develop' && 'development' || 'preview' }}
+    steps:
+      - uses: actions/checkout@v4
 
-      # Deploy API only if API files changed or workflow changed or manual trigger
       - name: Azure Login with OIDC
-        if: |
-          needs.detect_changes.result == 'skipped' ||
-          needs.detect_changes.outputs.api_changed == 'true' || 
-          needs.detect_changes.outputs.workflow_changed == 'true' ||
-          github.event.inputs.deploy_all == 'true' ||
-          (steps.source-env.outputs.source_env != 'none' && 
-           (startsWith(github.ref, 'refs/heads/feature/') || 
-            startsWith(github.ref, 'refs/heads/hotfix/') || 
-            startsWith(github.ref, 'refs/heads/release/')))
         uses: azure/login@v2
         with:
           client-id: ${{ secrets.AZURE_CLIENT_ID }}
@@ -198,55 +202,47 @@ jobs:
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
       - name: Setup .NET
-        if: |
-          needs.detect_changes.result == 'skipped' ||
-          needs.detect_changes.outputs.api_changed == 'true' || 
-          needs.detect_changes.outputs.workflow_changed == 'true' ||
-          github.event.inputs.deploy_all == 'true'
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '8.0.x'
 
       - name: Build API
-        if: |
-          needs.detect_changes.result == 'skipped' ||
-          needs.detect_changes.outputs.api_changed == 'true' || 
-          needs.detect_changes.outputs.workflow_changed == 'true' ||
-          github.event.inputs.deploy_all == 'true'
         run: |
           cd api
           dotnet restore
-          dotnet build --configuration Release
-          dotnet publish --configuration Release --output ./publish
+          dotnet build --configuration Release --no-restore
+          dotnet publish --configuration Release --no-build --output ./publish
 
       - name: Deploy API to Azure Functions
-        if: |
-          needs.detect_changes.result == 'skipped' ||
-          needs.detect_changes.outputs.api_changed == 'true' || 
-          needs.detect_changes.outputs.workflow_changed == 'true' ||
-          github.event.inputs.deploy_all == 'true'
         uses: Azure/functions-action@v1
         with:
-          app-name: ${{ steps.resolve-env.outputs.functions_app }}
+          app-name: ${{ needs.detect_changes.outputs.functions_app }}
           package: 'api/publish'
 
-      - name: Skip API Deploy
-        if: |
-          needs.detect_changes.result != 'skipped' &&
-          needs.detect_changes.outputs.api_changed != 'true' && 
-          needs.detect_changes.outputs.workflow_changed != 'true' &&
-          github.event.inputs.deploy_all != 'true'
-        run: echo "Skipping API deployment - no API changes detected"
+  copy_environment_settings:
+    needs: [detect_changes, deploy_swa]
+    if: |
+      always() &&
+      needs.deploy_swa.result == 'success' &&
+      needs.detect_changes.outputs.source_env != 'none' &&
+      (startsWith(github.ref, 'refs/heads/feature/') || 
+       startsWith(github.ref, 'refs/heads/hotfix/') || 
+       startsWith(github.ref, 'refs/heads/release/'))
+    runs-on: ubuntu-latest
+    name: Copy Environment Settings
+    environment: ${{ github.ref == 'refs/heads/main' && 'production' || github.ref == 'refs/heads/develop' && 'development' || 'preview' }}
+    steps:
+      - name: Azure Login with OIDC
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
       - name: Copy Environment Variables from Source
-        if: |
-          (startsWith(github.ref, 'refs/heads/feature/') || 
-           startsWith(github.ref, 'refs/heads/hotfix/') || 
-           startsWith(github.ref, 'refs/heads/release/')) &&
-          steps.source-env.outputs.source_env != 'none'
         shell: bash
         run: |
-          source_env="${{ steps.source-env.outputs.source_env }}"
+          source_env="${{ needs.detect_changes.outputs.source_env }}"
           
           echo "Finding target environment..."
           
