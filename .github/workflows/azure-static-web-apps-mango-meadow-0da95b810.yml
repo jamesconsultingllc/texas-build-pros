@@ -17,7 +17,7 @@ on:
       - 'release/**'
 
 permissions:
-  id-token: write   # Required for OIDC
+  id-token: write
   contents: read
 
 jobs:
@@ -25,12 +25,13 @@ jobs:
     if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     name: Build and Deploy Job
+    environment: ${{ github.ref == 'refs/heads/main' && 'production' || github.ref == 'refs/heads/develop' && 'development' || 'preview' }}
     steps:
       - uses: actions/checkout@v4
         with:
           submodules: true
           lfs: false
-          fetch-depth: 0  # Need full history to find branch point
+          fetch-depth: 0
 
       - name: Determine Source Environment
         id: source-env
@@ -38,13 +39,10 @@ jobs:
         run: |
           branch="${{ github.ref_name }}"
           
-          # Find the parent branch for feature/hotfix branches
           if [[ "$branch" == feature/* ]] || [[ "$branch" == hotfix/* ]]; then
-            # Find the branch point (where this branch diverged from)
             parent_commit=$(git merge-base HEAD origin/develop 2>/dev/null || git merge-base HEAD origin/main 2>/dev/null || echo "")
             
             if [[ -n "$parent_commit" ]]; then
-              # Check if branch came from develop
               if git merge-base --is-ancestor "$parent_commit" origin/develop 2>/dev/null; then
                 echo "source=develop" >> "$GITHUB_OUTPUT"
                 echo "source_env=development" >> "$GITHUB_OUTPUT"
@@ -53,16 +51,13 @@ jobs:
                 echo "source_env=production" >> "$GITHUB_OUTPUT"
               fi
             else
-              # Default to develop for feature branches
               echo "source=develop" >> "$GITHUB_OUTPUT"
               echo "source_env=development" >> "$GITHUB_OUTPUT"
             fi
           elif [[ "$branch" == release/* ]]; then
-            # Release branches come from develop
             echo "source=develop" >> "$GITHUB_OUTPUT"
             echo "source_env=development" >> "$GITHUB_OUTPUT"
           else
-            # Main and develop branches don't have a source
             echo "source=none" >> "$GITHUB_OUTPUT"
             echo "source_env=none" >> "$GITHUB_OUTPUT"
           fi
@@ -85,12 +80,10 @@ jobs:
             echo "environment=Staging" >> "$GITHUB_OUTPUT"
             echo "slot=staging" >> "$GITHUB_OUTPUT"
           elif [[ "$branch" == feature/* ]] || [[ "$branch" == hotfix/* ]]; then
-            # Feature/hotfix branches get named preview slots
             sanitized_branch=$(echo "$branch" | sed 's/[^a-zA-Z0-9]/-/g' | cut -c1-20)
             echo "environment=$sanitized_branch" >> "$GITHUB_OUTPUT"
             echo "slot=$sanitized_branch" >> "$GITHUB_OUTPUT"
           else
-            # Any other branch gets a named preview slot
             sanitized_branch=$(echo "$branch" | sed 's/[^a-zA-Z0-9]/-/g' | cut -c1-20)
             echo "environment=$sanitized_branch" >> "$GITHUB_OUTPUT"
             echo "slot=$sanitized_branch" >> "$GITHUB_OUTPUT"
@@ -115,7 +108,7 @@ jobs:
            startsWith(github.ref, 'refs/heads/hotfix/') || 
            startsWith(github.ref, 'refs/heads/release/')) &&
           steps.source-env.outputs.source_env != 'none'
-        uses: azure/login@v1
+        uses: azure/login@v2
         with:
           client-id: ${{ secrets.AZURE_CLIENT_ID }}
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
@@ -129,21 +122,17 @@ jobs:
           steps.source-env.outputs.source_env != 'none'
         shell: bash
         run: |
-          # Get source environment settings (using lowercase)
           source_env="${{ steps.source-env.outputs.source_env }}"
           target_slot="${{ steps.resolve-env.outputs.slot }}"
           
           echo "Copying settings from $source_env to $target_slot"
           
-          # Get settings from source environment
           if [[ "$source_env" == "production" ]]; then
-            # Production has no environment suffix
             settings=$(az staticwebapp appsettings list \
               --name legacy-builders \
               --resource-group legacy-builders \
               --query "properties" -o json)
           else
-            # Development/Staging have environment suffix (using lowercase)
             settings=$(az staticwebapp appsettings list \
               --name legacy-builders \
               --resource-group legacy-builders \
@@ -151,20 +140,15 @@ jobs:
               --query "properties" -o json 2>/dev/null || echo "{}")
           fi
           
-          # Debug: Show what we got
           echo "Retrieved settings: $settings"
           
-          # Apply settings to new environment (if settings exist)
           if [[ "$settings" != "{}" ]] && [[ -n "$settings" ]] && [[ "$settings" != "null" ]]; then
-            # Convert JSON to key=value pairs
             echo "$settings" | jq -r 'to_entries[] | "\(.key)=\(.value)"' > settings.txt
             
-            # Apply each setting to the target environment
             while IFS= read -r setting; do
               key="${setting%%=*}"
               value="${setting#*=}"
               
-              # Skip empty values
               if [[ -n "$value" ]] && [[ "$value" != "null" ]]; then
                 echo "Setting $key for $target_slot"
                 az staticwebapp appsettings set \
