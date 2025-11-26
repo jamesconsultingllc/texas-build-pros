@@ -102,6 +102,8 @@ jobs:
           api_location: "api"
           output_location: "dist"
           production_branch: main
+        env:
+          VITE_APPINSIGHTS_CONNECTION_STRING: ${{ secrets.APPLICATIONINSIGHTS_CONNECTION_STRING }}
 
       - name: Azure Login with OIDC
         if: |
