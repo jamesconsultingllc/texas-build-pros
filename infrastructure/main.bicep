@@ -202,6 +202,34 @@ resource auditContainer 'Microsoft.DocumentDB/databaseAccounts/sqlDatabases/cont
 // Storage Account
 // =============================================================================
 
+// Get the SWA default hostname dynamically
+var swaDefaultHostname = existingStaticWebApp.properties.defaultHostname
+var swaBaseUrl = 'https://${swaDefaultHostname}'
+var swaDevUrl = 'https://development.${swaDefaultHostname}'
+var swaStagingUrl = 'https://staging.${swaDefaultHostname}'
+
+// Localhost origins for dev environment only
+var localOrigins = environment == 'dev' ? [
+  'http://localhost:8080'
+  'http://localhost:4280'
+  'http://127.0.0.1:8080'
+  'http://127.0.0.1:4280'
+] : []
+
+// SWA origins based on environment
+var swaOrigins = environment == 'dev' ? [
+  swaDevUrl
+  swaBaseUrl // Include production for testing
+] : environment == 'staging' ? [
+  swaStagingUrl
+  swaBaseUrl
+] : [
+  swaBaseUrl
+]
+
+// Combine all allowed origins
+var allowedOrigins = concat(localOrigins, swaOrigins)
+
 resource storageAccount 'Microsoft.Storage/storageAccounts@2023-01-01' = {
   name: storageAccountName
   location: location
@@ -225,13 +253,7 @@ resource blobService 'Microsoft.Storage/storageAccounts/blobServices@2023-01-01'
     cors: {
       corsRules: [
         {
-          // Base localhost rules for local development
-          allowedOrigins: [
-            'http://localhost:8080'
-            'http://localhost:4280'
-            'http://127.0.0.1:8080'
-            'http://127.0.0.1:4280'
-          ]
+          allowedOrigins: allowedOrigins
           allowedMethods: [
             'GET'
             'PUT'
