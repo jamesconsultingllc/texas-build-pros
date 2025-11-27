@@ -221,6 +221,36 @@ resource storageAccount 'Microsoft.Storage/storageAccounts@2023-01-01' = {
 resource blobService 'Microsoft.Storage/storageAccounts/blobServices@2023-01-01' = {
   parent: storageAccount
   name: 'default'
+  properties: {
+    cors: {
+      corsRules: [
+        {
+          // Base localhost rules for local development
+          allowedOrigins: [
+            'http://localhost:8080'
+            'http://localhost:4280'
+            'http://127.0.0.1:8080'
+            'http://127.0.0.1:4280'
+          ]
+          allowedMethods: [
+            'GET'
+            'PUT'
+            'POST'
+            'DELETE'
+            'HEAD'
+            'OPTIONS'
+          ]
+          allowedHeaders: [
+            '*'
+          ]
+          exposedHeaders: [
+            '*'
+          ]
+          maxAgeInSeconds: 3600
+        }
+      ]
+    }
+  }
 }
 
 // Project images container with public blob access for CDN-like performance

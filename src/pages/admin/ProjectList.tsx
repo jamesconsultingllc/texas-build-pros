@@ -4,6 +4,7 @@ import AdminLayout from '@/components/AdminLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
+import placeholderImage from '@/assets/placeholder.png';
 import {
   Plus,
   Search,
@@ -110,13 +111,11 @@ const ProjectList = () => {
                 <div className="flex items-center gap-6">
                   {/* Thumbnail */}
                   <div className="w-24 h-24 bg-muted rounded-lg overflow-hidden flex-shrink-0">
-                    {project.afterImages[0] && (
-                      <img
-                        src={project.afterImages[0].thumbnail || project.afterImages[0].url}
-                        alt={project.title}
-                        className="w-full h-full object-cover"
-                      />
-                    )}
+                    <img
+                      src={project.primaryAfterImage || placeholderImage}
+                      alt={project.title}
+                      className="w-full h-full object-cover"
+                    />
                   </div>
 
                   {/* Info */}

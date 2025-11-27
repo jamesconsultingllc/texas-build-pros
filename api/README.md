@@ -19,7 +19,7 @@ Copy `local.settings.json.example` (if it exists) or update `local.settings.json
 {
   "IsEncrypted": false,
   "Values": {
-    "AzureWebJobsStorage": "UseDevelopmentStorage=true",
+    "StorageAccountConnectionString": "UseDevelopmentStorage=true",
     "FUNCTIONS_WORKER_RUNTIME": "dotnet-isolated",
     "CosmosDbConnectionString": "AccountEndpoint=https://localhost:8081/;AccountKey=...",
     "CosmosDbDatabaseName": "LegacyBuilders",

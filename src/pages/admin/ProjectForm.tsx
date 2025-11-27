@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import AdminLayout from '@/components/AdminLayout';
-import ImageUpload from '@/components/ImageUpload';
+import ImageUpload, { type UploadedImage, type ExistingImage } from '@/components/ImageUpload';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -12,13 +12,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
 import { ProjectFormData } from '@/types/project';
 import { useAdminProject, useCreateProject, useUpdateProject, useImageUpload } from '@/hooks/use-projects';
-
-interface UploadedImage {
-  id: string;
-  file: File;
-  preview: string;
-  isPrimary: boolean;
-}
 
 const ProjectForm = () => {
   const { id } = useParams();
@@ -49,6 +42,8 @@ const ProjectForm = () => {
 
   const [beforeImages, setBeforeImages] = useState<UploadedImage[]>([]);
   const [afterImages, setAfterImages] = useState<UploadedImage[]>([]);
+  const [existingBeforeImages, setExistingBeforeImages] = useState<ExistingImage[]>([]);
+  const [existingAfterImages, setExistingAfterImages] = useState<ExistingImage[]>([]);
 
   // Load existing project data when editing
   useEffect(() => {
@@ -68,7 +63,22 @@ const ProjectForm = () => {
         squareFootage: existingProject.squareFootage,
         status: existingProject.status === 'archived' ? 'draft' : existingProject.status,
       });
-      // TODO: Load existing images from project data
+
+      // Load existing images (convert URLs to ExistingImage objects)
+      const beforeImgs = (existingProject.beforeImages || []).map((url, index) => ({
+        id: `existing-before-${index}`,
+        url,
+        isPrimary: url === existingProject.primaryBeforeImage,
+      }));
+
+      const afterImgs = (existingProject.afterImages || []).map((url, index) => ({
+        id: `existing-after-${index}`,
+        url,
+        isPrimary: url === existingProject.primaryAfterImage,
+      }));
+
+      setExistingBeforeImages(beforeImgs);
+      setExistingAfterImages(afterImgs);
     }
   }, [existingProject]);
 
@@ -86,20 +96,56 @@ const ProjectForm = () => {
         return;
       }
 
-      if (afterImages.length === 0) {
+      if (existingAfterImages.length === 0 && afterImages.length === 0) {
         toast.error('Please upload at least one after image before publishing');
         return;
       }
     }
 
     try {
+      // Upload NEW images first
+      const uploadedBeforeImages: string[] = [];
+      const uploadedAfterImages: string[] = [];
+
+      // Upload new before images
+      for (const image of beforeImages) {
+        toast.info(`Uploading before image: ${image.file.name}...`);
+        const blobUrl = await uploadImage.mutateAsync(image.file);
+        uploadedBeforeImages.push(blobUrl);
+      }
+
+      // Upload new after images
+      for (const image of afterImages) {
+        toast.info(`Uploading after image: ${image.file.name}...`);
+        const blobUrl = await uploadImage.mutateAsync(image.file);
+        uploadedAfterImages.push(blobUrl);
+      }
+
+      // Combine existing images with newly uploaded images
+      const existingBeforeUrls = existingBeforeImages.map(img => img.url);
+      const existingAfterUrls = existingAfterImages.map(img => img.url);
+      const allBeforeImages = [...existingBeforeUrls, ...uploadedBeforeImages];
+      const allAfterImages = [...existingAfterUrls, ...uploadedAfterImages];
+
+      // Determine primary images
+      const primaryBeforeExisting = existingBeforeImages.find(img => img.isPrimary);
+      const primaryBeforeNew = beforeImages.find(img => img.isPrimary);
+      const primaryAfterExisting = existingAfterImages.find(img => img.isPrimary);
+      const primaryAfterNew = afterImages.find(img => img.isPrimary);
+
+      const primaryBeforeImage = primaryBeforeExisting?.url
+        || (primaryBeforeNew ? uploadedBeforeImages[beforeImages.indexOf(primaryBeforeNew)] : allBeforeImages[0] || '');
+      const primaryAfterImage = primaryAfterExisting?.url
+        || (primaryAfterNew ? uploadedAfterImages[afterImages.indexOf(primaryAfterNew)] : allAfterImages[0] || '');
+
       const submitData: ProjectFormData = {
         ...formData,
         status: publishNow ? 'published' : 'draft',
+        beforeImages: allBeforeImages,
+        afterImages: allAfterImages,
+        primaryBeforeImage,
+        primaryAfterImage,
       };
-
-      // TODO: Upload images first if there are new images
-      // For now, we'll save without images and implement image upload separately
 
       if (isEditing && id) {
         await updateProject.mutateAsync({ id, data: submitData });
@@ -377,6 +423,8 @@ const ProjectForm = () => {
                     label="Upload Before Images"
                     images={beforeImages}
                     onImagesChange={setBeforeImages}
+                    existingImages={existingBeforeImages}
+                    onExistingImagesChange={setExistingBeforeImages}
                   />
                 </CardContent>
               </Card>
@@ -390,6 +438,8 @@ const ProjectForm = () => {
                     label="Upload After Images"
                     images={afterImages}
                     onImagesChange={setAfterImages}
+                    existingImages={existingAfterImages}
+                    onExistingImagesChange={setExistingAfterImages}
                   />
                 </CardContent>
               </Card>

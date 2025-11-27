@@ -77,21 +77,35 @@ export const api = {
     },
 
     images: {
-      upload: async (file: File) => {
-        const formData = new FormData();
-        formData.append('file', file);
+      upload: async (file: File): Promise<string> => {
+        // Step 1: Get SAS token from API
+        const sasResponse = await fetchWithAuth<{ sasUrl: string; blobUrl: string }>(
+          '/api/manage/images/sas-token',
+          {
+            method: 'POST',
+            body: JSON.stringify({
+              fileName: file.name,
+              contentType: file.type,
+            }),
+          }
+        );
 
-        const response = await fetch('/api/manage/images/upload', {
-          method: 'POST',
-          body: formData, // Don't set Content-Type, browser sets it with boundary
-          credentials: 'include',
+        // Step 2: Upload file directly to Azure Blob Storage using SAS token
+        const uploadResponse = await fetch(sasResponse.sasUrl, {
+          method: 'PUT',
+          headers: {
+            'x-ms-blob-type': 'BlockBlob',
+            'Content-Type': file.type,
+          },
+          body: file,
         });
 
-        if (!response.ok) {
-          throw new ApiError(response.status, 'Image upload failed');
+        if (!uploadResponse.ok) {
+          throw new ApiError(uploadResponse.status, 'Failed to upload image to storage');
         }
 
-        return response.json() as Promise<{ url: string; thumbnail: string }>;
+        // Step 3: Return the blob URL (without SAS token)
+        return sasResponse.blobUrl;
       },
     },
   },
