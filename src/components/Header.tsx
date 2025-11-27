@@ -1,13 +1,96 @@
 import { useState } from "react";
 import Logo from "@/components/Logo";
-import { Menu, X, Phone, Mail } from "lucide-react";
+import { Menu, X, LogIn, LogOut, User } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
+import { Button } from "@/components/ui/button";
 
 const Header = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const { user, isAdmin, isLoading, login, logout } = useAuth();
 
   const toggleMenu = () => setIsMenuOpen(!isMenuOpen);
   
   const closeMenu = () => setIsMenuOpen(false);
+
+  const renderDesktopAuth = () => {
+    if (isLoading) {
+      return <span className="text-muted-foreground text-sm">Loading...</span>;
+    }
+
+    if (user) {
+      return (
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 text-foreground">
+            <User size={16} className="text-gold" />
+            <span className="text-sm font-medium">{user.userDetails}</span>
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={logout}
+            className="flex items-center gap-2"
+          >
+            <LogOut size={16} />
+            Logout
+          </Button>
+        </div>
+      );
+    }
+
+    return (
+      <Button
+        variant="outline"
+        size="sm"
+        onClick={login}
+        className="flex items-center gap-2"
+      >
+        <LogIn size={16} />
+        Login
+      </Button>
+    );
+  };
+
+  const renderMobileAuth = () => {
+    if (isLoading) {
+      return <span className="text-muted-foreground text-base py-2">Loading...</span>;
+    }
+
+    if (user) {
+      return (
+        <>
+          <div className="flex items-center gap-2 text-foreground py-2">
+            <User size={18} className="text-gold" />
+            <span className="font-medium">{user.userDetails}</span>
+          </div>
+          <Button
+            variant="outline"
+            onClick={() => {
+              closeMenu();
+              logout();
+            }}
+            className="flex items-center gap-2 justify-center"
+          >
+            <LogOut size={18} />
+            Logout
+          </Button>
+        </>
+      );
+    }
+
+    return (
+      <Button
+        variant="outline"
+        onClick={() => {
+          closeMenu();
+          login();
+        }}
+        className="flex items-center gap-2 justify-center"
+      >
+        <LogIn size={18} />
+        Login
+      </Button>
+    );
+  };
 
   return (
     <header className="bg-background border-b border-border">
@@ -34,26 +117,18 @@ const Header = () => {
             <a href="#contact" className="text-foreground hover:text-gold transition-colors font-medium">
               Contact
             </a>
+            {isAdmin && (
+              <a href="/admin" className="text-foreground hover:text-gold transition-colors font-medium">
+                Admin
+              </a>
+            )}
           </nav>
 
           <div className="flex items-center space-x-4">
-            <div className="hidden md:flex flex-col items-end text-right space-y-1">
-              <a 
-                href="tel:+12149973361" 
-                className="text-foreground hover:text-gold transition-colors font-medium text-sm flex items-center gap-2"
-              >
-                <Phone size={16} className="text-gold" />
-                <span>(214) 997-3361</span>
-              </a>
-              <a 
-                href="mailto:contact@lbinvestmentsllc.com" 
-                className="text-foreground hover:text-gold transition-colors text-sm flex items-center gap-2"
-              >
-                <Mail size={16} className="text-gold" />
-                <span>contact@lbinvestmentsllc.com</span>
-              </a>
+            <div className="hidden md:flex items-center space-x-3">
+              {renderDesktopAuth()}
             </div>
-            
+
             {/* Mobile Menu Button */}
             <button
               onClick={toggleMenu}
@@ -69,52 +144,46 @@ const Header = () => {
         {isMenuOpen && (
           <nav className="md:hidden py-4 border-t border-border">
                 <div className="flex flex-col space-y-4">
-                  <a 
-                    href="/" 
+                  <a
+                    href="/"
                     className="text-foreground hover:text-gold transition-colors font-medium text-lg py-2"
                     onClick={closeMenu}
                   >
                     Home
                   </a>
                   {/* Portfolio link temporarily hidden */}
-              <a 
-                href="#services" 
+              <a
+                href="#services"
                 className="text-foreground hover:text-gold transition-colors font-medium text-lg py-2"
                 onClick={closeMenu}
               >
                 Services
               </a>
-              <a 
-                href="#about" 
+              <a
+                href="#about"
                 className="text-foreground hover:text-gold transition-colors font-medium text-lg py-2"
                 onClick={closeMenu}
               >
                 About
               </a>
-              <a 
-                href="#contact" 
+              <a
+                href="#contact"
                 className="text-foreground hover:text-gold transition-colors font-medium text-lg py-2"
                 onClick={closeMenu}
               >
                 Contact
               </a>
+              {isAdmin && (
+                <a
+                  href="/admin"
+                  className="text-foreground hover:text-gold transition-colors font-medium text-lg py-2"
+                  onClick={closeMenu}
+                >
+                  Admin
+                </a>
+              )}
               <div className="flex flex-col space-y-3 pt-2 border-t border-border">
-                <a 
-                  href="tel:+12149973361" 
-                  className="text-foreground hover:text-gold transition-colors font-medium text-base flex items-center gap-2"
-                  onClick={closeMenu}
-                >
-                  <Phone size={18} className="text-gold" />
-                  <span>(214) 997-3361</span>
-                </a>
-                <a 
-                  href="mailto:contact@lbinvestmentsllc.com" 
-                  className="text-foreground hover:text-gold transition-colors text-base flex items-center gap-2"
-                  onClick={closeMenu}
-                >
-                  <Mail size={18} className="text-gold" />
-                  <span>contact@lbinvestmentsllc.com</span>
-                </a>
+                {renderMobileAuth()}
               </div>
             </div>
           </nav>
