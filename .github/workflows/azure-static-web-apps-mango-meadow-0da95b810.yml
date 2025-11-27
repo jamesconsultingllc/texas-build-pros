@@ -106,6 +106,10 @@ jobs:
           VITE_APPINSIGHTS_CONNECTION_STRING: ${{ secrets.APPLICATIONINSIGHTS_CONNECTION_STRING }}
 
       - name: Azure Login with OIDC
+        if: |
+          startsWith(github.ref, 'refs/heads/feature/') || 
+          startsWith(github.ref, 'refs/heads/hotfix/') || 
+          startsWith(github.ref, 'refs/heads/release/')
         uses: azure/login@a65d910e8af852a8061c627c456678983e180302 # v2.2.0
         with:
           client-id: ${{ secrets.AZURE_CLIENT_ID }}
@@ -113,20 +117,18 @@ jobs:
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
       - name: Update Storage CORS for Environment
+        if: |
+          startsWith(github.ref, 'refs/heads/feature/') || 
+          startsWith(github.ref, 'refs/heads/hotfix/') || 
+          startsWith(github.ref, 'refs/heads/release/')
         shell: bash
         env:
           STORAGE_ACCOUNT_KEY: ${{ secrets.STORAGE_ACCOUNT_KEY }}
         run: |
           slot="${{ steps.resolve-env.outputs.slot }}"
 
-          # Determine the SWA hostname based on deployment slot
-          if [[ -z "$slot" ]] || [[ "$slot" == "" ]]; then
-            # Production - main branch
-            SWA_URL="https://mango-meadow-0da95b810.azurestaticapps.net"
-          else
-            # Preview/Dev environments
-            SWA_URL="https://${slot}.mango-meadow-0da95b810.azurestaticapps.net"
-          fi
+          # Preview environments only
+          SWA_URL="https://${slot}.mango-meadow-0da95b810.azurestaticapps.net"
 
           echo "Checking CORS for: $SWA_URL"
 
