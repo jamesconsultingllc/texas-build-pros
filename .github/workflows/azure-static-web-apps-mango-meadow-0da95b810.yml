@@ -131,23 +131,10 @@ jobs:
           # First, find the storage account and its resource group
           STORAGE_ACCOUNT="legacybuildersdevst"
           
-          # Try to find the storage account in any resource group
-          STORAGE_RG=$(az storage account list --query "[?name=='$STORAGE_ACCOUNT'].resourceGroup | [0]" -o tsv)
-          
-          if [[ -z "$STORAGE_RG" ]]; then
-            echo "Storage account $STORAGE_ACCOUNT not found in subscription"
-            echo "Available storage accounts:"
-            az storage account list --query "[].{name:name, resourceGroup:resourceGroup}" -o table
-            echo "Skipping CORS configuration"
-            exit 0
-          fi
-          
-          echo "Found storage account in resource group: $STORAGE_RG"
-          
           # Get the storage account key
           STORAGE_KEY=$(az storage account keys list \
             --account-name "$STORAGE_ACCOUNT" \
-            --resource-group "$STORAGE_RG" \
+            --resource-group "legacy-builders-dev-rg" \
             --query "[0].value" -o tsv)
           
           if [[ -z "$STORAGE_KEY" ]]; then
