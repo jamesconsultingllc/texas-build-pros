@@ -106,6 +106,10 @@ jobs:
           VITE_APPINSIGHTS_CONNECTION_STRING: ${{ secrets.APPLICATIONINSIGHTS_CONNECTION_STRING }}
 
       - name: Azure Login with OIDC
+        if: |
+          startsWith(github.ref, 'refs/heads/feature/') || 
+          startsWith(github.ref, 'refs/heads/hotfix/') || 
+          startsWith(github.ref, 'refs/heads/release/')
         uses: azure/login@a65d910e8af852a8061c627c456678983e180302 # v2.2.0
         with:
           client-id: ${{ secrets.AZURE_CLIENT_ID }}
