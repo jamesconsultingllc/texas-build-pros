@@ -27,7 +27,7 @@ jobs:
     name: Build and Deploy Job
     environment: ${{ github.ref == 'refs/heads/main' && 'production' || github.ref == 'refs/heads/develop' && 'development' || 'preview' }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@eef61447b9ff4aafe5dcd4e0bbf5d482be7e7871 # v4.2.1
         with:
           submodules: true
           lfs: false
@@ -92,7 +92,7 @@ jobs:
 
       - name: Build And Deploy
         id: builddeploy
-        uses: Azure/static-web-apps-deploy@v1
+        uses: Azure/static-web-apps-deploy@1a947af9992250f3bc2e68ad0754c0b0c11566c9 # v1.0.0
         with:
           azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN_MANGO_MEADOW_0DA95B810 }}
           repo_token: ${{ secrets.GITHUB_TOKEN }}
@@ -106,7 +106,7 @@ jobs:
           VITE_APPINSIGHTS_CONNECTION_STRING: ${{ secrets.APPLICATIONINSIGHTS_CONNECTION_STRING }}
 
       - name: Azure Login with OIDC
-        uses: azure/login@v2
+        uses: azure/login@a65d910e8af852a8061c627c456678983e180302 # v2.2.0
         with:
           client-id: ${{ secrets.AZURE_CLIENT_ID }}
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
@@ -114,9 +114,11 @@ jobs:
 
       - name: Update Storage CORS for Environment
         shell: bash
+        env:
+          STORAGE_ACCOUNT_KEY: ${{ secrets.STORAGE_ACCOUNT_KEY }}
         run: |
           slot="${{ steps.resolve-env.outputs.slot }}"
-          
+
           # Determine the SWA hostname based on deployment slot
           if [[ -z "$slot" ]] || [[ "$slot" == "" ]]; then
             # Production - main branch
@@ -125,43 +127,84 @@ jobs:
             # Preview/Dev environments
             SWA_URL="https://${slot}.mango-meadow-0da95b810.azurestaticapps.net"
           fi
-          
-          echo "Adding CORS rule for: $SWA_URL"
-          
+
+          echo "Checking CORS for: $SWA_URL"
+
           STORAGE_ACCOUNT="legacybuildersdevst"
-          
-          if [[ -z "${{ secrets.STORAGE_ACCOUNT_KEY }}" ]]; then
+
+          if [[ -z "$STORAGE_ACCOUNT_KEY" ]]; then
             echo "Storage account key not configured in GitHub secrets"
             echo "Skipping CORS configuration"
             exit 0
           fi
-          
-          # Get current CORS rules and check if origin already exists
-          EXISTING_ORIGINS=$(az storage cors list \
+
+          # Get current CORS rules as JSON
+          CORS_RULES=$(az storage cors list \
             --account-name "$STORAGE_ACCOUNT" \
-            --account-key "${{ secrets.STORAGE_ACCOUNT_KEY }}" \
+            --account-key "$STORAGE_ACCOUNT_KEY" \
             --services b \
-            --query "[].allowedOrigins[]" -o tsv 2>/dev/null || echo "")
-          
-          if echo "$EXISTING_ORIGINS" | grep -q "$SWA_URL"; then
+            -o json 2>/dev/null || echo "[]")
+
+          # Check if origin already exists in any rule
+          ORIGIN_EXISTS=$(echo "$CORS_RULES" | jq -r "[.[].allowedOrigins[]] | any(. == \"$SWA_URL\")")
+
+          if [[ "$ORIGIN_EXISTS" == "true" ]]; then
             echo "CORS rule already exists for $SWA_URL"
           else
             echo "Adding new CORS rule for $SWA_URL"
-            az storage cors add \
-              --account-name "$STORAGE_ACCOUNT" \
-              --account-key "${{ secrets.STORAGE_ACCOUNT_KEY }}" \
-              --services b \
-              --methods GET PUT POST DELETE HEAD OPTIONS \
-              --origins "$SWA_URL" \
-              --allowed-headers "*" \
-              --exposed-headers "*" \
-              --max-age 3600
+
+            # Count existing rules
+            RULE_COUNT=$(echo "$CORS_RULES" | jq '. | length')
+
+            if [[ $RULE_COUNT -ge 5 ]]; then
+              echo "Maximum CORS rules reached. Consolidating origins into single rule..."
+
+              # Extract all unique origins
+              ALL_ORIGINS=$(echo "$CORS_RULES" | jq -r '[.[].allowedOrigins[]] | unique | join(",")')
+
+              # Add the new origin
+              if [[ -n "$ALL_ORIGINS" ]]; then
+                ALL_ORIGINS="$ALL_ORIGINS,$SWA_URL"
+              else
+                ALL_ORIGINS="$SWA_URL"
+              fi
+
+              # Clear existing rules
+              az storage cors clear \
+                --account-name "$STORAGE_ACCOUNT" \
+                --account-key "$STORAGE_ACCOUNT_KEY" \
+                --services b
+
+              # Add single consolidated rule with all origins
+              az storage cors add \
+                --account-name "$STORAGE_ACCOUNT" \
+                --account-key "$STORAGE_ACCOUNT_KEY" \
+                --services b \
+                --methods GET PUT POST DELETE HEAD OPTIONS \
+                --origins "$ALL_ORIGINS" \
+                --allowed-headers "*" \
+                --exposed-headers "*" \
+                --max-age 3600
+
+              echo "Consolidated all origins into single CORS rule"
+            else
+              # Add as new rule if under limit
+              az storage cors add \
+                --account-name "$STORAGE_ACCOUNT" \
+                --account-key "$STORAGE_ACCOUNT_KEY" \
+                --services b \
+                --methods GET PUT POST DELETE HEAD OPTIONS \
+                --origins "$SWA_URL" \
+                --allowed-headers "*" \
+                --exposed-headers "*" \
+                --max-age 3600
+            fi
           fi
-          
+
           echo "Current CORS rules:"
           az storage cors list \
             --account-name "$STORAGE_ACCOUNT" \
-            --account-key "${{ secrets.STORAGE_ACCOUNT_KEY }}" \
+            --account-key "$STORAGE_ACCOUNT_KEY" \
             --services b -o table
 
       - name: Copy Environment Variables from Source
@@ -248,7 +291,7 @@ jobs:
     name: Close Preview Environment
     steps:
       - name: Azure Login with OIDC
-        uses: azure/login@v2
+        uses: azure/login@a65d910e8af852a8061c627c456678983e180302 # v2.2.0
         with:
           client-id: ${{ secrets.AZURE_CLIENT_ID }}
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
@@ -258,8 +301,10 @@ jobs:
         id: delete-env
         shell: bash
         continue-on-error: true
+        env:
+          BRANCH_REF: ${{ github.event.pull_request.head.ref }}
         run: |
-          branch="${{ github.event.pull_request.head.ref }}"
+          branch="${BRANCH_REF}"
           branch_pattern=$(echo "$branch" | sed 's/[^a-zA-Z0-9]//g' | cut -c1-20 | tr '[:upper:]' '[:lower:]')
           
           echo "Looking for environment matching pattern: $branch_pattern"
@@ -286,61 +331,63 @@ jobs:
       - name: Remove Storage CORS for Preview Environment
         shell: bash
         continue-on-error: true
+        env:
+          STORAGE_ACCOUNT_KEY: ${{ secrets.STORAGE_ACCOUNT_KEY }}
         run: |
           slot="${{ steps.delete-env.outputs.slot }}"
-          
+
           if [[ -z "$slot" ]]; then
             echo "No slot to clean up CORS for"
             exit 0
           fi
-          
+
           # Construct the SWA URL that was registered
           SWA_URL="https://${slot}.mango-meadow-0da95b810.azurestaticapps.net"
-          
+
           echo "Removing CORS rule for: $SWA_URL"
-          
+
           STORAGE_ACCOUNT="legacybuildersdevst"
-          
-          if [[ -z "${{ secrets.STORAGE_ACCOUNT_KEY }}" ]]; then
+
+          if [[ -z "$STORAGE_ACCOUNT_KEY" ]]; then
             echo "Storage account key not configured in GitHub secrets"
             echo "Skipping CORS cleanup"
             exit 0
           fi
-          
+
           # Get current CORS rules
           CORS_RULES=$(az storage cors list \
             --account-name "$STORAGE_ACCOUNT" \
-            --account-key "${{ secrets.STORAGE_ACCOUNT_KEY }}" \
+            --account-key "$STORAGE_ACCOUNT_KEY" \
             --services b \
             -o json 2>/dev/null || echo "[]")
-          
+
           echo "Current CORS rules: $CORS_RULES"
-          
+
           # Clear all CORS rules first
           az storage cors clear \
             --account-name "$STORAGE_ACCOUNT" \
-            --account-key "${{ secrets.STORAGE_ACCOUNT_KEY }}" \
+            --account-key "$STORAGE_ACCOUNT_KEY" \
             --services b
-          
+
           # Re-add all rules except the one we're removing
           echo "$CORS_RULES" | jq -c '.[]' | while read -r rule; do
             origins=$(echo "$rule" | jq -r '.allowedOrigins | join(",")')
-            
+
             # Skip if this rule contains the URL we want to remove
             if echo "$origins" | grep -q "$SWA_URL"; then
               echo "Skipping rule with origin: $SWA_URL"
               continue
             fi
-            
+
             methods=$(echo "$rule" | jq -r '.allowedMethods | join(",")')
             allowed_headers=$(echo "$rule" | jq -r '.allowedHeaders | join(",")')
             exposed_headers=$(echo "$rule" | jq -r '.exposedHeaders | join(",")')
             max_age=$(echo "$rule" | jq -r '.maxAgeInSeconds')
-            
+
             echo "Re-adding CORS rule for: $origins"
             az storage cors add \
               --account-name "$STORAGE_ACCOUNT" \
-              --account-key "${{ secrets.STORAGE_ACCOUNT_KEY }}" \
+              --account-key "$STORAGE_ACCOUNT_KEY" \
               --services b \
               --methods $methods \
               --origins "$origins" \
@@ -348,16 +395,16 @@ jobs:
               --exposed-headers "$exposed_headers" \
               --max-age "$max_age"
           done
-          
+
           echo "CORS cleanup complete. Remaining rules:"
           az storage cors list \
             --account-name "$STORAGE_ACCOUNT" \
-            --account-key "${{ secrets.STORAGE_ACCOUNT_KEY }}" \
+            --account-key "$STORAGE_ACCOUNT_KEY" \
             --services b -o table
 
       - name: Fallback - Close with SWA Action
         if: steps.delete-env.outputs.deleted != 'true'
-        uses: Azure/static-web-apps-deploy@v1
+        uses: Azure/static-web-apps-deploy@1a947af9992250f3bc2e68ad0754c0b0c11566c9 # v1.0.0
         with:
           azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN_MANGO_MEADOW_0DA95B810 }}
           action: close
