@@ -263,6 +263,7 @@ jobs:
           branch_pattern=$(echo "$branch" | sed 's/[^a-zA-Z0-9]//g' | cut -c1-20 | tr '[:upper:]' '[:lower:]')
           
           echo "Looking for environment matching pattern: $branch_pattern"
+          echo "slot=$branch_pattern" >> "$GITHUB_OUTPUT"
           
           target_slot=$(az staticwebapp environment list \
             --name legacy-builders \
@@ -281,6 +282,78 @@ jobs:
             echo "No environment found"
             echo "deleted=false" >> "$GITHUB_OUTPUT"
           fi
+
+      - name: Remove Storage CORS for Preview Environment
+        shell: bash
+        continue-on-error: true
+        run: |
+          slot="${{ steps.delete-env.outputs.slot }}"
+          
+          if [[ -z "$slot" ]]; then
+            echo "No slot to clean up CORS for"
+            exit 0
+          fi
+          
+          # Construct the SWA URL that was registered
+          SWA_URL="https://${slot}.mango-meadow-0da95b810.azurestaticapps.net"
+          
+          echo "Removing CORS rule for: $SWA_URL"
+          
+          STORAGE_ACCOUNT="legacybuildersdevst"
+          
+          if [[ -z "${{ secrets.STORAGE_ACCOUNT_KEY }}" ]]; then
+            echo "Storage account key not configured in GitHub secrets"
+            echo "Skipping CORS cleanup"
+            exit 0
+          fi
+          
+          # Get current CORS rules
+          CORS_RULES=$(az storage cors list \
+            --account-name "$STORAGE_ACCOUNT" \
+            --account-key "${{ secrets.STORAGE_ACCOUNT_KEY }}" \
+            --services b \
+            -o json 2>/dev/null || echo "[]")
+          
+          echo "Current CORS rules: $CORS_RULES"
+          
+          # Clear all CORS rules first
+          az storage cors clear \
+            --account-name "$STORAGE_ACCOUNT" \
+            --account-key "${{ secrets.STORAGE_ACCOUNT_KEY }}" \
+            --services b
+          
+          # Re-add all rules except the one we're removing
+          echo "$CORS_RULES" | jq -c '.[]' | while read -r rule; do
+            origins=$(echo "$rule" | jq -r '.allowedOrigins | join(",")')
+            
+            # Skip if this rule contains the URL we want to remove
+            if echo "$origins" | grep -q "$SWA_URL"; then
+              echo "Skipping rule with origin: $SWA_URL"
+              continue
+            fi
+            
+            methods=$(echo "$rule" | jq -r '.allowedMethods | join(",")')
+            allowed_headers=$(echo "$rule" | jq -r '.allowedHeaders | join(",")')
+            exposed_headers=$(echo "$rule" | jq -r '.exposedHeaders | join(",")')
+            max_age=$(echo "$rule" | jq -r '.maxAgeInSeconds')
+            
+            echo "Re-adding CORS rule for: $origins"
+            az storage cors add \
+              --account-name "$STORAGE_ACCOUNT" \
+              --account-key "${{ secrets.STORAGE_ACCOUNT_KEY }}" \
+              --services b \
+              --methods $methods \
+              --origins "$origins" \
+              --allowed-headers "$allowed_headers" \
+              --exposed-headers "$exposed_headers" \
+              --max-age "$max_age"
+          done
+          
+          echo "CORS cleanup complete. Remaining rules:"
+          az storage cors list \
+            --account-name "$STORAGE_ACCOUNT" \
+            --account-key "${{ secrets.STORAGE_ACCOUNT_KEY }}" \
+            --services b -o table
 
       - name: Fallback - Close with SWA Action
         if: steps.delete-env.outputs.deleted != 'true'
