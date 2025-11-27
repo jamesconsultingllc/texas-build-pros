@@ -128,18 +128,13 @@ jobs:
           
           echo "Adding CORS rule for: $SWA_URL"
           
-          # First, find the storage account and its resource group
           STORAGE_ACCOUNT="legacybuildersdevst"
-          
-          # Get the storage account key
-          STORAGE_KEY=$(az storage account keys list \
-            --account-name "$STORAGE_ACCOUNT" \
-            --resource-group "legacy-builders-dev-rg" \
-            --query "[0].value" -o tsv)
+          STORAGE_KEY="${{ secrets.STORAGE_ACCOUNT_KEY }}"
           
           if [[ -z "$STORAGE_KEY" ]]; then
-            echo "Failed to retrieve storage account key"
-            exit 1
+            echo "Storage account key not configured in GitHub secrets"
+            echo "Skipping CORS configuration"
+            exit 0
           fi
           
           # Get current CORS rules and check if origin already exists
@@ -270,7 +265,7 @@ jobs:
           
           echo "Looking for environment matching pattern: $branch_pattern"
           
-          target_slot=$(az staticwebapp environment list \
+          target_slot=$(az staticwebapp.environment list \
             --name legacy-builders \
             --resource-group legacy-builders \
             --query "[?starts_with(name, '${branch_pattern:0:10}')].name | [0]" -o tsv)
