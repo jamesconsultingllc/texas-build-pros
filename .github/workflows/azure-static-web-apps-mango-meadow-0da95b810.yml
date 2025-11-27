@@ -129,9 +129,8 @@ jobs:
           echo "Adding CORS rule for: $SWA_URL"
           
           STORAGE_ACCOUNT="legacybuildersdevst"
-          STORAGE_KEY="${{ secrets.STORAGE_ACCOUNT_KEY }}"
           
-          if [[ -z "$STORAGE_KEY" ]]; then
+          if [[ -z "${{ secrets.STORAGE_ACCOUNT_KEY }}" ]]; then
             echo "Storage account key not configured in GitHub secrets"
             echo "Skipping CORS configuration"
             exit 0
@@ -140,7 +139,7 @@ jobs:
           # Get current CORS rules and check if origin already exists
           EXISTING_ORIGINS=$(az storage cors list \
             --account-name "$STORAGE_ACCOUNT" \
-            --account-key "$STORAGE_KEY" \
+            --account-key "${{ secrets.STORAGE_ACCOUNT_KEY }}" \
             --services b \
             --query "[].allowedOrigins[]" -o tsv 2>/dev/null || echo "")
           
@@ -150,7 +149,7 @@ jobs:
             echo "Adding new CORS rule for $SWA_URL"
             az storage cors add \
               --account-name "$STORAGE_ACCOUNT" \
-              --account-key "$STORAGE_KEY" \
+              --account-key "${{ secrets.STORAGE_ACCOUNT_KEY }}" \
               --services b \
               --methods GET PUT POST DELETE HEAD OPTIONS \
               --origins "$SWA_URL" \
@@ -162,7 +161,7 @@ jobs:
           echo "Current CORS rules:"
           az storage cors list \
             --account-name "$STORAGE_ACCOUNT" \
-            --account-key "$STORAGE_KEY" \
+            --account-key "${{ secrets.STORAGE_ACCOUNT_KEY }}" \
             --services b -o table
 
       - name: Copy Environment Variables from Source
