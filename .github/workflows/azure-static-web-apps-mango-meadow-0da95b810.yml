@@ -264,7 +264,7 @@ jobs:
           
           echo "Looking for environment matching pattern: $branch_pattern"
           
-          target_slot=$(az staticwebapp.environment list \
+          target_slot=$(az staticwebapp environment list \
             --name legacy-builders \
             --resource-group legacy-builders \
             --query "[?starts_with(name, '${branch_pattern:0:10}')].name | [0]" -o tsv)

@@ -1,9 +1,11 @@
 import { useState } from "react";
 import Logo from "@/components/Logo";
 import { Menu, X, Phone, Mail } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
 
 const Header = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const { isAdmin } = useAuth();
 
   const toggleMenu = () => setIsMenuOpen(!isMenuOpen);
   
@@ -34,6 +36,11 @@ const Header = () => {
             <a href="#contact" className="text-foreground hover:text-gold transition-colors font-medium">
               Contact
             </a>
+            {isAdmin && (
+              <a href="/admin" className="text-foreground hover:text-gold transition-colors font-medium">
+                Admin
+              </a>
+            )}
           </nav>
 
           <div className="flex items-center space-x-4">
@@ -91,13 +98,22 @@ const Header = () => {
               >
                 About
               </a>
-              <a 
-                href="#contact" 
+              <a
+                href="#contact"
                 className="text-foreground hover:text-gold transition-colors font-medium text-lg py-2"
                 onClick={closeMenu}
               >
                 Contact
               </a>
+              {isAdmin && (
+                <a
+                  href="/admin"
+                  className="text-foreground hover:text-gold transition-colors font-medium text-lg py-2"
+                  onClick={closeMenu}
+                >
+                  Admin
+                </a>
+              )}
               <div className="flex flex-col space-y-3 pt-2 border-t border-border">
                 <a 
                   href="tel:+12149973361" 
