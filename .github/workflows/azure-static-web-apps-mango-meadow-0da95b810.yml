@@ -145,8 +145,11 @@ jobs:
             --services b \
             -o json 2>/dev/null || echo "[]")
 
-          # Check if origin already exists in any rule
-          ORIGIN_EXISTS=$(echo "$CORS_RULES" | jq -r "[.[].allowedOrigins[]] | any(. == \"$SWA_URL\")")
+          # Debug: Show the raw CORS rules
+          echo "Raw CORS rules: $CORS_RULES"
+
+          # Check if origin already exists in any rule (using capitalized property names)
+          ORIGIN_EXISTS=$(echo "$CORS_RULES" | jq -r "[.[].AllowedOrigins] | flatten | any(. == \"$SWA_URL\")" 2>/dev/null || echo "false")
 
           if [[ "$ORIGIN_EXISTS" == "true" ]]; then
             echo "CORS rule already exists for $SWA_URL"
@@ -154,13 +157,13 @@ jobs:
             echo "Adding new CORS rule for $SWA_URL"
 
             # Count existing rules
-            RULE_COUNT=$(echo "$CORS_RULES" | jq '. | length')
+            RULE_COUNT=$(echo "$CORS_RULES" | jq '. | length' 2>/dev/null || echo "0")
 
             if [[ $RULE_COUNT -ge 5 ]]; then
               echo "Maximum CORS rules reached. Consolidating origins into single rule..."
 
-              # Extract all unique origins
-              ALL_ORIGINS=$(echo "$CORS_RULES" | jq -r '[.[].allowedOrigins[]] | unique | join(",")')
+              # Extract all unique origins (using capitalized property names)
+              ALL_ORIGINS=$(echo "$CORS_RULES" | jq -r "[.[].AllowedOrigins] | flatten | unique | join(\",\")" 2>/dev/null || echo "")
 
               # Add the new origin
               if [[ -n "$ALL_ORIGINS" ]]; then
@@ -371,7 +374,7 @@ jobs:
 
           # Re-add all rules except the one we're removing
           echo "$CORS_RULES" | jq -c '.[]' | while read -r rule; do
-            origins=$(echo "$rule" | jq -r '.allowedOrigins | join(",")')
+            origins=$(echo "$rule" | jq -r '.AllowedOrigins // empty')
 
             # Skip if this rule contains the URL we want to remove
             if echo "$origins" | grep -q "$SWA_URL"; then
@@ -379,17 +382,23 @@ jobs:
               continue
             fi
 
-            methods=$(echo "$rule" | jq -r '.allowedMethods | join(",")')
-            allowed_headers=$(echo "$rule" | jq -r '.allowedHeaders | join(",")')
-            exposed_headers=$(echo "$rule" | jq -r '.exposedHeaders | join(",")')
-            max_age=$(echo "$rule" | jq -r '.maxAgeInSeconds')
+            # Skip if origins is empty
+            if [[ -z "$origins" ]]; then
+              echo "Skipping rule with empty origins"
+              continue
+            fi
+
+            methods=$(echo "$rule" | jq -r '.AllowedMethods // "GET,PUT,POST,DELETE,HEAD,OPTIONS"')
+            allowed_headers=$(echo "$rule" | jq -r '.AllowedHeaders // "*"')
+            exposed_headers=$(echo "$rule" | jq -r '.ExposedHeaders // "*"')
+            max_age=$(echo "$rule" | jq -r '.MaxAgeInSeconds // 3600')
 
             echo "Re-adding CORS rule for: $origins"
             az storage cors add \
               --account-name "$STORAGE_ACCOUNT" \
               --account-key "$STORAGE_ACCOUNT_KEY" \
               --services b \
-              --methods $methods \
+              --methods "$methods" \
               --origins "$origins" \
               --allowed-headers "$allowed_headers" \
               --exposed-headers "$exposed_headers" \
