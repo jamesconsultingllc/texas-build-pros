@@ -2,20 +2,22 @@ import { Link } from 'react-router-dom';
 import { MapPin, Calendar } from 'lucide-react';
 import { Project } from '@/types/project';
 import { Card, CardContent, CardFooter } from '@/components/ui/card';
+import placeholderImage from '@/assets/placeholder.png';
 
 interface ProjectCardProps {
   project: Project;
 }
 
 const ProjectCard = ({ project }: ProjectCardProps) => {
-  const primaryImage = project.afterImages.find(
-    (img) => img.id === project.primaryAfterImage
-  ) || project.afterImages[0];
+  // Use primaryAfterImage if set, otherwise use the first after image
+  const primaryImage = project.primaryAfterImage || project.afterImages[0];
 
-  const formattedDate = new Date(project.completionDate).toLocaleDateString('en-US', {
-    month: 'short',
-    year: 'numeric',
-  });
+  const formattedDate = project.completionDate 
+    ? new Date(project.completionDate).toLocaleDateString('en-US', {
+        month: 'short',
+        year: 'numeric',
+      })
+    : 'In Progress';
 
   return (
     <Link to={`/portfolio/${project.slug}`}>
@@ -23,13 +25,17 @@ const ProjectCard = ({ project }: ProjectCardProps) => {
         <div className="aspect-video relative overflow-hidden bg-muted">
           {primaryImage ? (
             <img
-              src={primaryImage.url}
-              alt={primaryImage.alt || project.title}
+              src={primaryImage}
+              alt={`${project.title} - ${project.location}`}
               className="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
             />
           ) : (
             <div className="w-full h-full flex items-center justify-center text-muted-foreground">
-              No image
+              <img
+                src={placeholderImage}
+                alt={project.title}
+                className="w-24 h-24 object-contain"
+              />
             </div>
           )}
         </div>

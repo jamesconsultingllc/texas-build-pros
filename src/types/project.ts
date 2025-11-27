@@ -22,8 +22,8 @@ export interface Project {
   finalCost: number;
   squareFootage: number;
   status: 'draft' | 'published' | 'archived';
-  beforeImages: ProjectImage[];
-  afterImages: ProjectImage[];
+  beforeImages: string[];
+  afterImages: string[];
   primaryBeforeImage: string;
   primaryAfterImage: string;
   createdAt: string;
@@ -44,4 +44,8 @@ export interface ProjectFormData {
   finalCost: number;
   squareFootage: number;
   status: 'draft' | 'published';
+  beforeImages?: string[];
+  afterImages?: string[];
+  primaryBeforeImage?: string;
+  primaryAfterImage?: string;
 }

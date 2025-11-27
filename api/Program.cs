@@ -43,6 +43,9 @@ var host = new HostBuilder()
         // Register custom telemetry service
         services.AddSingleton<ITelemetryService, TelemetryService>();
 
+        // Register Blob Storage service for image uploads
+        services.AddSingleton<IBlobStorageService, BlobStorageService>();
+
         // Configure Cosmos DB with either Connection String or Managed Identity
         var cosmosConnectionString = Environment.GetEnvironmentVariable("CosmosDbConnectionString");
         var cosmosEndpoint = Environment.GetEnvironmentVariable("CosmosDbEndpoint");

@@ -1,37 +1,17 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
-import { Project } from '@/types/project';
-import { ArrowLeft, MapPin, Calendar, DollarSign, Maximize } from 'lucide-react';
+import { ArrowLeft, MapPin, Calendar, Maximize } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import { useProject } from '@/hooks/use-projects';
+import placeholderImage from '@/assets/placeholder.png';
 
 const ProjectDetail = () => {
   const { slug } = useParams<{ slug: string }>();
-  const [project, setProject] = useState<Project | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const { data: project, isLoading, error } = useProject(slug || '');
   const [selectedImage, setSelectedImage] = useState(0);
-
-  useEffect(() => {
-    // TODO: Fetch from Azure Cosmos DB API
-    const fetchProject = async () => {
-      try {
-        // Replace with your Azure Static Web App API endpoint
-        // const response = await fetch(`/api/projects/${slug}`);
-        // const data = await response.json();
-        // setProject(data);
-        
-        setProject(null);
-      } catch (error) {
-        console.error('Failed to fetch project:', error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    fetchProject();
-  }, [slug]);
 
   if (isLoading) {
     return (
@@ -41,13 +21,20 @@ const ProjectDetail = () => {
     );
   }
 
-  if (!project) {
+  if (error || !project) {
     return (
       <div className="min-h-screen flex flex-col">
         <Header />
         <main className="flex-1 flex items-center justify-center">
           <div className="text-center">
-            <h1 className="text-4xl font-bold mb-4">Project Not Found</h1>
+            <h1 className="text-4xl font-bold mb-4">
+              {error ? 'Error Loading Project' : 'Project Not Found'}
+            </h1>
+            {error && (
+              <p className="text-muted-foreground mb-4">
+                {error instanceof Error ? error.message : 'An unexpected error occurred'}
+              </p>
+            )}
             <Link to="/portfolio">
               <Button>Back to Portfolio</Button>
             </Link>
@@ -63,7 +50,7 @@ const ProjectDetail = () => {
   return (
     <div className="min-h-screen flex flex-col">
       <Header />
-      
+
       <main className="flex-1">
         {/* Hero Section */}
         <section className="bg-navy text-white py-12">
@@ -72,18 +59,20 @@ const ProjectDetail = () => {
               <ArrowLeft className="h-4 w-4" />
               Back to Portfolio
             </Link>
-            
+
             <h1 className="text-4xl md:text-5xl font-bold mb-4">{project.title}</h1>
-            
+
             <div className="flex flex-wrap gap-4 text-white/80">
               <span className="flex items-center gap-2">
                 <MapPin className="h-5 w-5" />
                 {project.location}
               </span>
-              <span className="flex items-center gap-2">
+                <span className="flex items-center gap-2">
                 <Calendar className="h-5 w-5" />
-                Completed: {new Date(project.completionDate).toLocaleDateString()}
-              </span>
+                {project.completionDate 
+                  ? `Completed: ${new Date(project.completionDate).toLocaleDateString()}`
+                  : 'In Progress'}
+                </span>
               {project.squareFootage > 0 && (
                 <span className="flex items-center gap-2">
                   <Maximize className="h-5 w-5" />
@@ -101,24 +90,28 @@ const ProjectDetail = () => {
               {/* Main Image */}
               <div className="lg:col-span-2">
                 <div className="aspect-video bg-muted rounded-lg overflow-hidden">
-                  {allImages[selectedImage] ? (
+                  {allImages.length > 0 && allImages[selectedImage] ? (
                     <img
-                      src={allImages[selectedImage].url}
-                      alt={allImages[selectedImage].alt}
+                      src={allImages[selectedImage]}
+                      alt={`${project.title} - Image ${selectedImage + 1}`}
                       className="w-full h-full object-cover"
                     />
                   ) : (
                     <div className="w-full h-full flex items-center justify-center text-muted-foreground">
-                      No image available
+                      <img
+                        src={placeholderImage}
+                        alt={project.title}
+                        className="w-24 h-24 object-contain"
+                      />
                     </div>
                   )}
                 </div>
-                
+
                 {/* Thumbnail Gallery */}
                 <div className="grid grid-cols-4 gap-4 mt-4">
-                  {allImages.map((image, index) => (
+                  {allImages.map((imageUrl, index) => (
                     <button
-                      key={image.id}
+                      key={`${imageUrl}-${index}`}
                       onClick={() => setSelectedImage(index)}
                       className={`aspect-video rounded-lg overflow-hidden border-2 transition-all ${
                         selectedImage === index
@@ -127,8 +120,8 @@ const ProjectDetail = () => {
                       }`}
                     >
                       <img
-                        src={image.thumbnail || image.url}
-                        alt={image.alt}
+                        src={imageUrl}
+                        alt={`${project.title} - Thumbnail ${index + 1}`}
                         className="w-full h-full object-cover"
                       />
                     </button>
@@ -151,7 +144,9 @@ const ProjectDetail = () => {
                       <div>
                         <dt className="text-sm text-muted-foreground">Completion Date</dt>
                         <dd className="font-semibold">
-                          {new Date(project.completionDate).toLocaleDateString()}
+                          {project.completionDate 
+                            ? new Date(project.completionDate).toLocaleDateString()
+                            : 'In Progress'}
                         </dd>
                       </div>
                       {project.budget > 0 && (

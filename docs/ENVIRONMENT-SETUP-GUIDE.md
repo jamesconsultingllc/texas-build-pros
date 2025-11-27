@@ -153,6 +153,15 @@ az staticwebapp environment create \
 
 Each SWA environment needs its own connection strings pointing to its corresponding infrastructure.
 
+**IMPORTANT:** You must include `StorageAccountConnectionString` for image upload functionality. Get the storage connection string:
+
+```bash
+# Get storage account connection string for each environment
+az storage account show-connection-string --resource-group legacy-builders-prod-rg --name legacybuildersprodst --query connectionString -o tsv
+az storage account show-connection-string --resource-group legacy-builders-staging-rg --name legacybuildersstagingst --query connectionString -o tsv
+az storage account show-connection-string --resource-group legacy-builders-dev-rg --name legacybuildersdevst --query connectionString -o tsv
+```
+
 #### Production Environment Variables
 
 ```bash
@@ -162,7 +171,7 @@ az staticwebapp appsettings set \
   --setting-names \
     CosmosDbEndpoint="https://legacy-builders-cosmos-prod.documents.azure.com:443/" \
     CosmosDbDatabaseName="LegacyBuilders" \
-    StorageAccountName="legacybuildersprodstorage" \
+    StorageAccountConnectionString="[from connection string command above]" \
     APPLICATIONINSIGHTS_CONNECTION_STRING="[from deployment outputs]" \
     Environment="prod"
 ```
@@ -177,22 +186,24 @@ az staticwebapp appsettings set \
   --setting-names \
     CosmosDbEndpoint="https://legacy-builders-cosmos-staging.documents.azure.com:443/" \
     CosmosDbDatabaseName="LegacyBuilders" \
-    StorageAccountName="legacybuildersstagingstorage" \
+    StorageAccountConnectionString="[from connection string command above]" \
     APPLICATIONINSIGHTS_CONNECTION_STRING="[staging connection string]" \
     Environment="staging"
 ```
 
 #### Dev Environment Variables
 
+**Note:** Preview environments (feature/*, hotfix/*) automatically inherit these settings via GitHub Actions.
+
 ```bash
 az staticwebapp appsettings set \
   --name legacy-builders-swa \
   --resource-group legacy-builders-prod-rg \
-  --environment-name dev \
+  --environment-name development \
   --setting-names \
     CosmosDbEndpoint="https://legacy-builders-cosmos-dev.documents.azure.com:443/" \
     CosmosDbDatabaseName="LegacyBuilders" \
-    StorageAccountName="legacybuildersdevstorage" \
+    StorageAccountConnectionString="[from connection string command above]" \
     APPLICATIONINSIGHTS_CONNECTION_STRING="[dev connection string]" \
     Environment="dev"
 ```

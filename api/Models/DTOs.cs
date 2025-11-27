@@ -15,6 +15,10 @@ public class ProjectFormData
     public decimal FinalCost { get; set; }
     public int SquareFootage { get; set; }
     public string Status { get; set; } = "draft";
+    public List<string>? BeforeImages { get; set; }
+    public List<string>? AfterImages { get; set; }
+    public string? PrimaryBeforeImage { get; set; }
+    public string? PrimaryAfterImage { get; set; }
 }
 
 public class DashboardStatsResponse

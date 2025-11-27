@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { FolderOpen, FileText, Plus, Eye } from 'lucide-react';
 import { useAdminDashboard } from '@/hooks/use-projects';
+import placeholderImage from '@/assets/placeholder.png';
 
 const AdminDashboard = () => {
   const { data, isLoading, error } = useAdminDashboard();
@@ -93,13 +94,11 @@ const AdminDashboard = () => {
                   >
                     <div className="flex items-center gap-4">
                       <div className="w-16 h-16 bg-muted rounded overflow-hidden">
-                        {project.afterImages[0] && (
-                          <img
-                            src={project.afterImages[0].thumbnail || project.afterImages[0].url}
-                            alt={project.title}
-                            className="w-full h-full object-cover"
-                          />
-                        )}
+                        <img
+                          src={project.primaryAfterImage || placeholderImage}
+                          alt={project.title}
+                          className="w-full h-full object-cover"
+                        />
                       </div>
                       <div>
                         <h3 className="font-semibold">{project.title}</h3>

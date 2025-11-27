@@ -50,10 +50,10 @@ public class Project
     public string Status { get; set; } = "draft"; // "draft" | "published" | "archived"
 
     [JsonProperty("beforeImages")]
-    public List<ProjectImage> BeforeImages { get; set; } = new();
+    public List<string> BeforeImages { get; set; } = new();
 
     [JsonProperty("afterImages")]
-    public List<ProjectImage> AfterImages { get; set; } = new();
+    public List<string> AfterImages { get; set; } = new();
 
     [JsonProperty("primaryBeforeImage")]
     public string PrimaryBeforeImage { get; set; } = string.Empty;

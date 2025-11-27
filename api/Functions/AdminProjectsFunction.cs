@@ -11,6 +11,7 @@ namespace LegacyBuilders.Api.Functions;
 
 public class AdminProjectsFunction(
     ICosmosDbService cosmosDbService,
+    IBlobStorageService blobStorageService,
     ILogger<AdminProjectsFunction> logger,
     ITelemetryService? telemetryService = null)
 {
@@ -197,10 +198,10 @@ public class AdminProjectsFunction(
                 FinalCost = formData.FinalCost,
                 SquareFootage = formData.SquareFootage,
                 Status = formData.Status,
-                BeforeImages = new List<ProjectImage>(),
-                AfterImages = new List<ProjectImage>(),
-                PrimaryBeforeImage = string.Empty,
-                PrimaryAfterImage = string.Empty,
+                BeforeImages = formData.BeforeImages ?? new List<string>(),
+                AfterImages = formData.AfterImages ?? new List<string>(),
+                PrimaryBeforeImage = formData.PrimaryBeforeImage ?? string.Empty,
+                PrimaryAfterImage = formData.PrimaryAfterImage ?? string.Empty,
                 CreatedAt = DateTime.UtcNow,
                 UpdatedAt = DateTime.UtcNow
             };
@@ -313,6 +314,22 @@ public class AdminProjectsFunction(
                 }
             }
 
+            // Delete orphaned blobs (images that were removed)
+            if (formData.BeforeImages != null || formData.AfterImages != null)
+            {
+                var oldImages = existingProject.BeforeImages.Concat(existingProject.AfterImages);
+                var newImages = (formData.BeforeImages ?? new List<string>())
+                    .Concat(formData.AfterImages ?? new List<string>());
+                var orphanedImages = oldImages.Except(newImages).ToList();
+
+                if (orphanedImages.Count > 0)
+                {
+                    logger.LogInformation("Deleting {Count} orphaned images for project {ProjectId}",
+                        orphanedImages.Count, id);
+                    await blobStorageService.DeleteBlobsAsync(orphanedImages);
+                }
+            }
+
             // Update project properties
             existingProject.Title = formData.Title;
             existingProject.Slug = newSlug;
@@ -328,7 +345,16 @@ public class AdminProjectsFunction(
             existingProject.FinalCost = formData.FinalCost;
             existingProject.SquareFootage = formData.SquareFootage;
             existingProject.Status = formData.Status;
-            // Note: Images are not updated here - they're managed separately via image upload endpoint
+
+            // Update images if provided
+            if (formData.BeforeImages != null)
+                existingProject.BeforeImages = formData.BeforeImages;
+            if (formData.AfterImages != null)
+                existingProject.AfterImages = formData.AfterImages;
+            if (formData.PrimaryBeforeImage != null)
+                existingProject.PrimaryBeforeImage = formData.PrimaryBeforeImage;
+            if (formData.PrimaryAfterImage != null)
+                existingProject.PrimaryAfterImage = formData.PrimaryAfterImage;
 
             telemetryService?.TrackEvent("Admin.UpdateProject", new Dictionary<string, string>
             {
@@ -381,18 +407,39 @@ public class AdminProjectsFunction(
         {
             // TODO: Add authentication check here
 
+            // Get project to find all associated images
+            var project = await cosmosDbService.GetProjectByIdAsync(id);
+            if (project == null)
+            {
+                var notFoundResponse = req.CreateResponse(HttpStatusCode.NotFound);
+                await notFoundResponse.WriteAsJsonAsync(new { message = $"Project with ID '{id}' not found" });
+                return notFoundResponse;
+            }
+
             telemetryService?.TrackEvent("Admin.DeleteProject", new Dictionary<string, string>
             {
-                { "ProjectId", id }
+                { "ProjectId", id },
+                { "Title", project.Title }
             });
 
+            // Delete all associated images from blob storage
+            var allImages = project.BeforeImages.Concat(project.AfterImages).ToList();
+            if (allImages.Count > 0)
+            {
+                logger.LogInformation("Deleting {Count} images for project {ProjectId}",
+                    allImages.Count, id);
+                await blobStorageService.DeleteBlobsAsync(allImages);
+            }
+
+            // Delete project from database
             await cosmosDbService.DeleteProjectAsync(id);
 
             var duration = DateTimeOffset.UtcNow - startTime;
-            logger.LogInformation("Admin: Deleted project {ProjectId} in {Duration}ms",
-                id, duration.TotalMilliseconds);
+            logger.LogInformation("Admin: Deleted project {ProjectId} and {ImageCount} images in {Duration}ms",
+                id, allImages.Count, duration.TotalMilliseconds);
 
             telemetryService?.TrackMetric("Admin.Project.Delete.Duration", duration.TotalMilliseconds);
+            telemetryService?.TrackMetric("Admin.Project.Delete.ImagesDeleted", allImages.Count);
 
             // Return 204 No Content for successful deletion
             var response = req.CreateResponse(HttpStatusCode.NoContent);
