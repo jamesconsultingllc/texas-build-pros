@@ -9,15 +9,32 @@ interface UploadedImage {
   isPrimary: boolean;
 }
 
+interface ExistingImage {
+  id: string;
+  url: string;
+  isPrimary: boolean;
+}
+
 interface ImageUploadProps {
   label: string;
   images: UploadedImage[];
   onImagesChange: (images: UploadedImage[]) => void;
+  existingImages?: ExistingImage[];
+  onExistingImagesChange?: (images: ExistingImage[]) => void;
   maxImages?: number;
 }
 
-const ImageUpload = ({ label, images, onImagesChange, maxImages = 10 }: ImageUploadProps) => {
+const ImageUpload = ({
+  label,
+  images,
+  onImagesChange,
+  existingImages = [],
+  onExistingImagesChange,
+  maxImages = 10
+}: ImageUploadProps) => {
   const [isDragging, setIsDragging] = useState(false);
+
+  const totalImages = existingImages.length + images.length;
 
   const handleDrop = useCallback(
     (e: React.DragEvent) => {
@@ -28,7 +45,7 @@ const ImageUpload = ({ label, images, onImagesChange, maxImages = 10 }: ImageUpl
         file.type.startsWith('image/')
       );
 
-      if (files.length + images.length > maxImages) {
+      if (files.length + totalImages > maxImages) {
         alert(`Maximum ${maxImages} images allowed`);
         return;
       }
@@ -37,12 +54,12 @@ const ImageUpload = ({ label, images, onImagesChange, maxImages = 10 }: ImageUpl
         id: Math.random().toString(36).substring(7),
         file,
         preview: URL.createObjectURL(file),
-        isPrimary: images.length === 0,
+        isPrimary: totalImages === 0,
       }));
 
       onImagesChange([...images, ...newImages]);
     },
-    [images, maxImages, onImagesChange]
+    [images, totalImages, maxImages, onImagesChange]
   );
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -50,7 +67,7 @@ const ImageUpload = ({ label, images, onImagesChange, maxImages = 10 }: ImageUpl
       file.type.startsWith('image/')
     );
 
-    if (files.length + images.length > maxImages) {
+    if (files.length + totalImages > maxImages) {
       alert(`Maximum ${maxImages} images allowed`);
       return;
     }
@@ -59,10 +76,33 @@ const ImageUpload = ({ label, images, onImagesChange, maxImages = 10 }: ImageUpl
       id: Math.random().toString(36).substring(7),
       file,
       preview: URL.createObjectURL(file),
-      isPrimary: images.length === 0,
+      isPrimary: totalImages === 0,
     }));
 
     onImagesChange([...images, ...newImages]);
+  };
+
+  const removeExistingImage = (id: string) => {
+    if (!onExistingImagesChange) return;
+
+    const updatedImages = existingImages.filter((img) => img.id !== id);
+
+    // If removed image was primary, set first image as primary
+    if (existingImages.find((img) => img.id === id)?.isPrimary && updatedImages.length > 0) {
+      updatedImages[0].isPrimary = true;
+    }
+
+    onExistingImagesChange(updatedImages);
+  };
+
+  const setExistingPrimary = (id: string) => {
+    if (!onExistingImagesChange) return;
+
+    const updatedImages = existingImages.map((img) => ({
+      ...img,
+      isPrimary: img.id === id,
+    }));
+    onExistingImagesChange(updatedImages);
   };
 
   const removeImage = (id: string) => {
@@ -120,13 +160,58 @@ const ImageUpload = ({ label, images, onImagesChange, maxImages = 10 }: ImageUpl
           </Button>
         </label>
         <p className="text-xs text-muted-foreground mt-2">
-          {images.length} / {maxImages} images
+          {totalImages} / {maxImages} images
         </p>
       </div>
 
       {/* Image Preview Grid */}
-      {images.length > 0 && (
+      {totalImages > 0 && (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          {/* Existing Images */}
+          {existingImages.map((image) => (
+            <div
+              key={image.id}
+              className="relative group aspect-square rounded-lg overflow-hidden border border-border"
+            >
+              <img
+                src={image.url}
+                alt="Existing"
+                className="w-full h-full object-cover"
+              />
+
+              {/* Overlay */}
+              <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={image.isPrimary ? 'default' : 'outline'}
+                  onClick={() => setExistingPrimary(image.id)}
+                  className="bg-background/90 hover:bg-background"
+                >
+                  <Star className={`h-4 w-4 ${image.isPrimary ? 'fill-gold text-gold' : ''}`} />
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="destructive"
+                  onClick={() => removeExistingImage(image.id)}
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+
+              {image.isPrimary && (
+                <div className="absolute top-2 right-2 bg-gold text-white text-xs px-2 py-1 rounded">
+                  Primary
+                </div>
+              )}
+              <div className="absolute bottom-2 left-2 bg-blue-500 text-white text-xs px-2 py-1 rounded">
+                Saved
+              </div>
+            </div>
+          ))}
+
+          {/* New Images */}
           {images.map((image) => (
             <div
               key={image.id}
@@ -137,7 +222,7 @@ const ImageUpload = ({ label, images, onImagesChange, maxImages = 10 }: ImageUpl
                 alt="Preview"
                 className="w-full h-full object-cover"
               />
-              
+
               {/* Overlay */}
               <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
                 <Button
@@ -158,12 +243,15 @@ const ImageUpload = ({ label, images, onImagesChange, maxImages = 10 }: ImageUpl
                   <X className="h-4 w-4" />
                 </Button>
               </div>
-              
+
               {image.isPrimary && (
                 <div className="absolute top-2 right-2 bg-gold text-white text-xs px-2 py-1 rounded">
                   Primary
                 </div>
               )}
+              <div className="absolute bottom-2 left-2 bg-green-500 text-white text-xs px-2 py-1 rounded">
+                New
+              </div>
             </div>
           ))}
         </div>
@@ -173,3 +261,4 @@ const ImageUpload = ({ label, images, onImagesChange, maxImages = 10 }: ImageUpl
 };
 
 export default ImageUpload;
+export type { UploadedImage, ExistingImage };

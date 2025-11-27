@@ -53,17 +53,28 @@ az staticwebapp show --name legacy-builders --resource-group legacy-builders
 ### 4. Get Connection Strings
 
 ```bash
-# Production
+# Production - App Insights Connection String
 az deployment group show --resource-group legacy-builders-prod-rg --name main --query properties.outputs.appInsightsConnectionString.value -o tsv
 
-# Staging
+# Production - Storage Account Connection String (needed for image uploads)
+az storage account show-connection-string --resource-group legacy-builders-prod-rg --name legacybuildersprodst --query connectionString -o tsv
+
+# Staging - App Insights Connection String
 az deployment group show --resource-group legacy-builders-staging-rg --name main --query properties.outputs.appInsightsConnectionString.value -o tsv
 
-# Dev
+# Staging - Storage Account Connection String
+az storage account show-connection-string --resource-group legacy-builders-staging-rg --name legacybuildersstagingst --query connectionString -o tsv
+
+# Dev - App Insights Connection String
 az deployment group show --resource-group legacy-builders-dev-rg --name main --query properties.outputs.appInsightsConnectionString.value -o tsv
+
+# Dev - Storage Account Connection String
+az storage account show-connection-string --resource-group legacy-builders-dev-rg --name legacybuildersdevst --query connectionString -o tsv
 ```
 
 ### 5. Configure SWA Environment Variables
+
+**IMPORTANT:** Include `StorageAccountConnectionString` for image upload functionality via SAS tokens.
 
 ```bash
 # Production (default environment)
@@ -73,6 +84,7 @@ az staticwebapp appsettings set \
   --setting-names \
     CosmosDbEndpoint="https://legacy-builders-cosmos-prod.documents.azure.com:443/" \
     CosmosDbDatabaseName="LegacyBuilders" \
+    StorageAccountConnectionString="[prod-storage-connection-string-from-step-4]" \
     APPLICATIONINSIGHTS_CONNECTION_STRING="[prod-connection-string]" \
     Environment="prod"
 
@@ -84,20 +96,24 @@ az staticwebapp appsettings set \
   --setting-names \
     CosmosDbEndpoint="https://legacy-builders-cosmos-staging.documents.azure.com:443/" \
     CosmosDbDatabaseName="LegacyBuilders" \
+    StorageAccountConnectionString="[staging-storage-connection-string-from-step-4]" \
     APPLICATIONINSIGHTS_CONNECTION_STRING="[staging-connection-string]" \
     Environment="staging"
 
-# Dev
+# Dev (Preview environments inherit these settings automatically)
 az staticwebapp appsettings set \
   --name legacy-builders \
   --resource-group legacy-builders \
-  --environment-name dev \
+  --environment-name development \
   --setting-names \
     CosmosDbEndpoint="https://legacy-builders-cosmos-dev.documents.azure.com:443/" \
     CosmosDbDatabaseName="LegacyBuilders" \
+    StorageAccountConnectionString="[dev-storage-connection-string-from-step-4]" \
     APPLICATIONINSIGHTS_CONNECTION_STRING="[dev-connection-string]" \
     Environment="dev"
 ```
+
+**Note:** Preview environments (feature/*, hotfix/*) automatically inherit settings from the `development` environment, including `StorageAccountConnectionString`.
 
 ---
 

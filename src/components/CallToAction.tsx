@@ -1,7 +1,7 @@
 import { Mail, Phone } from "lucide-react";
 import ContactForm from "./ContactForm";
 
-const CTA = () => {
+const CallToAction = () => {
   return (
     <section id="contact" className="py-6 bg-background">
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
@@ -40,4 +40,4 @@ const CTA = () => {
   );
 };
 
-export default CTA;
+export default CallToAction;
