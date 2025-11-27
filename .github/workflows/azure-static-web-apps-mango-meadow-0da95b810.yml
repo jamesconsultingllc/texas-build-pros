@@ -389,7 +389,7 @@ jobs:
               --account-name "$STORAGE_ACCOUNT" \
               --account-key "$STORAGE_ACCOUNT_KEY" \
               --services b \
-              --methods $methods \
+              --methods "$methods" \
               --origins "$origins" \
               --allowed-headers "$allowed_headers" \
               --exposed-headers "$exposed_headers" \
