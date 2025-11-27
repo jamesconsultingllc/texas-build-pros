@@ -2,7 +2,7 @@ import Header from "@/components/Header";
 import Hero from "@/components/Hero";
 import Services from "@/components/Services";
 import Differentiators from "@/components/Differentiators";
-import CTA from "@/components/CTA";
+import CallToAction from "@/components/CallToAction.tsx";
 import Footer from "@/components/Footer";
 
 const Index = () => {
@@ -12,7 +12,7 @@ const Index = () => {
       <Hero />
       <Services />
       <Differentiators />
-      <CTA />
+      <CallToAction />
       <Footer />
     </div>
   );
