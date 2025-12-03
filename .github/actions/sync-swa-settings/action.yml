@@ -1,0 +1,291 @@
+name: 'Sync Azure SWA Environment Settings'
+description: 'Sync app settings between Azure Static Web App environments. Requires Azure CLI login before use.'
+author: 'James Consulting LLC'
+branding:
+  icon: 'refresh-cw'
+  color: 'blue'
+
+inputs:
+  swa-name:
+    description: 'Static Web App name'
+    required: true
+  resource-group:
+    description: 'Resource group containing the SWA'
+    required: true
+  source-environment:
+    description: 'Source environment (slot name or "production"). If not provided, auto-detects using resolve-swa-environment.'
+    required: false
+    default: ''
+  target-environment:
+    description: 'Target environment (slot name or "production"). If not provided, auto-detects using resolve-swa-environment.'
+    required: false
+    default: ''
+  direction:
+    description: 'Sync direction: "one-way" (source→target only) or "two-way" (sync both directions)'
+    required: false
+    default: 'two-way'
+  overwrite:
+    description: 'Overwrite existing settings with different values'
+    required: false
+    default: 'false'
+  branch-mappings:
+    description: |
+      JSON object mapping branch patterns to environments. Passed to resolve-swa-environment when auto-detecting.
+      Default (GitFlow): {"main":"production","master":"production","develop":"development","release/*":"staging","feature/*":"$sanitized","hotfix/*":"$sanitized"}
+    required: false
+    default: ''
+  parent-branch-mappings:
+    description: |
+      JSON object mapping branch patterns to their parent environment for source detection.
+      Default (GitFlow): {"feature/*":"development","hotfix/*":"production","release/*":"development"}
+    required: false
+    default: ''
+
+outputs:
+  settings-synced:
+    description: 'Whether any settings were synced'
+    value: ${{ steps.sync-settings.outputs.synced }}
+  source-to-target-count:
+    description: 'Number of settings synced from source to target'
+    value: ${{ steps.sync-settings.outputs.source_to_target }}
+  target-to-source-count:
+    description: 'Number of settings synced from target to source (two-way only)'
+    value: ${{ steps.sync-settings.outputs.target_to_source }}
+  resolved-source:
+    description: 'The resolved source environment'
+    value: ${{ steps.set-envs.outputs.source_env }}
+  resolved-target:
+    description: 'The resolved target environment'
+    value: ${{ steps.set-envs.outputs.target_env }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Resolve Environments (if not provided)
+      id: resolve
+      if: inputs.source-environment == '' || inputs.target-environment == ''
+      uses: ./.github/actions/resolve-swa-environment
+      with:
+        branch-mappings: ${{ inputs.branch-mappings }}
+        parent-branch-mappings: ${{ inputs.parent-branch-mappings }}
+
+    - name: Set Environment Values
+      id: set-envs
+      shell: bash
+      run: |
+        # Use provided values or fall back to resolved values
+        source_input="${{ inputs.source-environment }}"
+        target_input="${{ inputs.target-environment }}"
+        resolved_source="${{ steps.resolve.outputs.source-environment }}"
+        resolved_target="${{ steps.resolve.outputs.target-environment }}"
+
+        if [[ -n "$source_input" ]]; then
+          source_env="$source_input"
+          echo "Using provided source: $source_env"
+        elif [[ -n "$resolved_source" ]]; then
+          source_env="$resolved_source"
+          echo "Using resolved source: $source_env"
+        else
+          source_env="development"
+          echo "Defaulting source to: $source_env"
+        fi
+
+        if [[ -n "$target_input" ]]; then
+          target_env="$target_input"
+          echo "Using provided target: $target_env"
+        elif [[ -n "$resolved_target" ]]; then
+          target_env="$resolved_target"
+          echo "Using resolved target: $target_env"
+        else
+          echo "::error::Cannot determine target environment"
+          exit 1
+        fi
+
+        echo "source_env=$source_env" >> "$GITHUB_OUTPUT"
+        echo "target_env=$target_env" >> "$GITHUB_OUTPUT"
+
+    - name: Find Target Environment in SWA
+      id: find-target
+      shell: bash
+      run: |
+        target_env="${{ steps.set-envs.outputs.target_env }}"
+        swa_name="${{ inputs.swa-name }}"
+        rg="${{ inputs.resource-group }}"
+
+        # Handle production (empty string or "production")
+        if [[ -z "$target_env" ]] || [[ "$target_env" == "production" ]]; then
+          echo "target_slot=production" >> "$GITHUB_OUTPUT"
+          echo "found=true" >> "$GITHUB_OUTPUT"
+          exit 0
+        fi
+
+        # Sanitize the pattern the same way SWA does
+        sanitized_pattern=$(echo "$target_env" | sed 's/[^a-zA-Z0-9]//g' | tr '[:upper:]' '[:lower:]')
+
+        echo "Looking for environment matching: $sanitized_pattern"
+
+        # Get the actual environment name from SWA
+        target_slot=$(az staticwebapp environment list \
+          --name "$swa_name" \
+          --resource-group "$rg" \
+          --query "[?starts_with(name, '${sanitized_pattern:0:10}')].name | [0]" -o tsv 2>/dev/null || echo "")
+
+        if [[ -n "$target_slot" ]]; then
+          echo "Found target environment: $target_slot"
+          echo "target_slot=$target_slot" >> "$GITHUB_OUTPUT"
+          echo "found=true" >> "$GITHUB_OUTPUT"
+        else
+          echo "::warning::Could not find target environment matching: $target_env"
+          echo "Available environments:"
+          az staticwebapp environment list \
+            --name "$swa_name" \
+            --resource-group "$rg" \
+            --query "[].name" -o tsv
+          echo "target_slot=" >> "$GITHUB_OUTPUT"
+          echo "found=false" >> "$GITHUB_OUTPUT"
+        fi
+
+    - name: Sync Environment Settings
+      id: sync-settings
+      if: steps.find-target.outputs.found == 'true'
+      shell: bash
+      run: |
+        source_env="${{ steps.set-envs.outputs.source_env }}"
+        target_env="${{ steps.find-target.outputs.target_slot }}"
+        swa_name="${{ inputs.swa-name }}"
+        rg="${{ inputs.resource-group }}"
+        direction="${{ inputs.direction }}"
+        overwrite="${{ inputs.overwrite }}"
+
+        echo "Syncing settings: $source_env → $target_env (direction=$direction, overwrite=$overwrite)"
+
+        # Function to get settings from an environment
+        get_settings() {
+          local env_name="$1"
+          if [[ "$env_name" == "production" ]]; then
+            az staticwebapp appsettings list \
+              --name "$swa_name" \
+              --resource-group "$rg" \
+              --query "properties" -o json 2>/dev/null || echo "{}"
+          else
+            az staticwebapp appsettings list \
+              --name "$swa_name" \
+              --resource-group "$rg" \
+              --environment-name "$env_name" \
+              --query "properties" -o json 2>/dev/null || echo "{}"
+          fi
+        }
+
+        # Function to set a setting in an environment
+        set_setting() {
+          local env_name="$1"
+          local key="$2"
+          local value="$3"
+          
+          if [[ "$env_name" == "production" ]]; then
+            az staticwebapp appsettings set \
+              --name "$swa_name" \
+              --resource-group "$rg" \
+              --setting-names "$key=$value" > /dev/null
+          else
+            az staticwebapp appsettings set \
+              --name "$swa_name" \
+              --resource-group "$rg" \
+              --environment-name "$env_name" \
+              --setting-names "$key=$value" > /dev/null
+          fi
+        }
+
+        # Get settings from both environments
+        echo "Fetching settings from $source_env..."
+        source_settings=$(get_settings "$source_env")
+        
+        echo "Fetching settings from $target_env..."
+        target_settings=$(get_settings "$target_env")
+
+        echo "Source ($source_env): $(echo "$source_settings" | jq -r 'keys | length') settings"
+        echo "Target ($target_env): $(echo "$target_settings" | jq -r 'keys | length') settings"
+
+        # Sync source → target
+        echo ""
+        echo "=== Syncing $source_env → $target_env ==="
+        source_to_target=0
+        
+        if [[ "$source_settings" != "{}" ]] && [[ -n "$source_settings" ]] && [[ "$source_settings" != "null" ]]; then
+          while IFS= read -r encoded; do
+            if [[ -z "$encoded" ]]; then
+              continue
+            fi
+            decoded=$(echo "$encoded" | base64 -d)
+            key=$(echo "$decoded" | jq -r '.key')
+            value=$(echo "$decoded" | jq -r '.value')
+
+            if [[ -z "$value" ]] || [[ "$value" == "null" ]]; then
+              continue
+            fi
+
+            target_value=$(echo "$target_settings" | jq -r --arg key "$key" '.[$key] // empty')
+
+            if [[ -z "$target_value" ]]; then
+              echo "  ADD: $key"
+              set_setting "$target_env" "$key" "$value"
+              ((source_to_target++)) || true
+            elif [[ "$overwrite" == "true" ]] && [[ "$target_value" != "$value" ]]; then
+              echo "  UPDATE: $key"
+              set_setting "$target_env" "$key" "$value"
+              ((source_to_target++)) || true
+            fi
+          done < <(echo "$source_settings" | jq -r 'to_entries[] | @base64')
+        fi
+        echo "Synced $source_to_target settings to $target_env"
+
+        # Sync target → source (if two-way)
+        target_to_source=0
+        if [[ "$direction" == "two-way" ]]; then
+          echo ""
+          echo "=== Syncing $target_env → $source_env ==="
+          
+          if [[ "$target_settings" != "{}" ]] && [[ -n "$target_settings" ]] && [[ "$target_settings" != "null" ]]; then
+            while IFS= read -r encoded; do
+              if [[ -z "$encoded" ]]; then
+                continue
+              fi
+              decoded=$(echo "$encoded" | base64 -d)
+              key=$(echo "$decoded" | jq -r '.key')
+              value=$(echo "$decoded" | jq -r '.value')
+
+              if [[ -z "$value" ]] || [[ "$value" == "null" ]]; then
+                continue
+              fi
+
+              source_value=$(echo "$source_settings" | jq -r --arg key "$key" '.[$key] // empty')
+
+              if [[ -z "$source_value" ]]; then
+                echo "  ADD: $key"
+                set_setting "$source_env" "$key" "$value"
+                ((target_to_source++)) || true
+              elif [[ "$overwrite" == "true" ]] && [[ "$source_value" != "$value" ]]; then
+                echo "  UPDATE: $key"
+                set_setting "$source_env" "$key" "$value"
+                ((target_to_source++)) || true
+              fi
+            done < <(echo "$target_settings" | jq -r 'to_entries[] | @base64')
+          fi
+          echo "Synced $target_to_source settings to $source_env"
+        fi
+
+        # Set outputs
+        total=$((source_to_target + target_to_source))
+        if [[ $total -gt 0 ]]; then
+          echo "synced=true" >> "$GITHUB_OUTPUT"
+        else
+          echo "synced=false" >> "$GITHUB_OUTPUT"
+        fi
+        echo "source_to_target=$source_to_target" >> "$GITHUB_OUTPUT"
+        echo "target_to_source=$target_to_source" >> "$GITHUB_OUTPUT"
+
+        echo ""
+        echo "=== Summary ==="
+        echo "Source → Target: $source_to_target"
+        echo "Target → Source: $target_to_source"
+        echo "Total synced: $total"
