@@ -19,9 +19,9 @@ inputs:
     description: 'Origin URL to add/remove (e.g., https://myapp.azurestaticapps.net)'
     required: true
   methods:
-    description: 'Allowed HTTP methods (comma-separated). Valid: DELETE,GET,HEAD,MERGE,OPTIONS,POST,PUT,PATCH,CONNECT,TRACE'
+    description: 'Allowed HTTP methods (space-separated). Valid: DELETE GET HEAD MERGE OPTIONS POST PUT PATCH CONNECT TRACE'
     required: false
-    default: 'DELETE,GET,HEAD,MERGE,OPTIONS,POST,PUT'
+    default: 'DELETE GET HEAD MERGE OPTIONS POST PUT'
   allowed-headers:
     description: 'Allowed headers'
     required: false

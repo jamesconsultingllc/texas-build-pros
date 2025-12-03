@@ -75,6 +75,8 @@ jobs:
         with:
           swa-name: legacy-builders
           resource-group: legacy-builders
+          source-environment: ${{ steps.resolve-env.outputs.source-environment }}
+          target-environment: ${{ steps.resolve-env.outputs.target-environment }}
           direction: one-way
 
   close_pull_request_job:
