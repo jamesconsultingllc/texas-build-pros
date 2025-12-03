@@ -169,7 +169,7 @@ jobs:
           action: remove
           storage-account: legacybuildersdevst
           storage-account-key: ${{ secrets.STORAGE_ACCOUNT_KEY }}
-          origin: https://${{ steps.source-env.outputs.sanitized-branch }}.mango-meadow-0da95b810.azurestaticapps.net
+          origin: https://${{ steps.find-slot.outputs.slot }}.mango-meadow-0da95b810.azurestaticapps.net
 
       - name: Fallback - Close with SWA Action
         if: steps.find-slot.outputs.found != 'true'
