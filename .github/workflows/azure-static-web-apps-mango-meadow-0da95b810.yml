@@ -35,7 +35,7 @@ jobs:
 
       - name: Resolve Environment
         id: resolve-env
-        uses: ./.github/actions/resolve-swa-environment
+        uses: jamesconsultingllc/resolve-swa-environment-action@v1
 
       - name: Build And Deploy
         id: builddeploy
@@ -62,7 +62,7 @@ jobs:
 
       - name: Add Storage CORS for Preview Environment
         if: steps.resolve-env.outputs.is-preview == 'true'
-        uses: ./.github/actions/manage-storage-cors
+        uses: jamesconsultingllc/manage-storage-cors-action@v1
         with:
           action: add
           storage-account: legacybuildersdevst
@@ -71,7 +71,7 @@ jobs:
 
       - name: Copy Environment Variables from Source
         if: steps.resolve-env.outputs.is-preview == 'true'
-        uses: ./.github/actions/sync-swa-settings
+        uses: jamesconsultingllc/sync-swa-settings-action@v1
         with:
           swa-name: legacy-builders
           resource-group: legacy-builders
@@ -96,13 +96,13 @@ jobs:
 
       - name: Resolve Source Environment (PR head branch)
         id: source-env
-        uses: ./.github/actions/resolve-swa-environment
+        uses: jamesconsultingllc/resolve-swa-environment-action@v1
         with:
           branch: ${{ github.event.pull_request.head.ref }}
 
       - name: Resolve Target Environment (PR base branch)
         id: target-env
-        uses: ./.github/actions/resolve-swa-environment
+        uses: jamesconsultingllc/resolve-swa-environment-action@v1
         with:
           branch: ${{ github.event.pull_request.base.ref }}
           detect-source: 'false'
@@ -139,7 +139,7 @@ jobs:
 
       - name: Sync New Settings to Target
         if: steps.find-slot.outputs.found == 'true'
-        uses: ./.github/actions/sync-swa-settings
+        uses: jamesconsultingllc/sync-swa-settings-action@v1
         with:
           swa-name: legacy-builders
           resource-group: legacy-builders
@@ -164,7 +164,7 @@ jobs:
 
       - name: Remove Storage CORS for Preview Environment
         if: steps.find-slot.outputs.found == 'true'
-        uses: ./.github/actions/manage-storage-cors
+        uses: jamesconsultingllc/manage-storage-cors-action@v1
         with:
           action: remove
           storage-account: legacybuildersdevst
