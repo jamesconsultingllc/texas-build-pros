@@ -168,7 +168,7 @@ runs:
               continue
             fi
 
-            methods=$(echo "$rule" | jq -r '.AllowedMethods // "GET,PUT,POST,DELETE,HEAD,OPTIONS"')
+            methods=$(echo "$rule" | jq -r '.AllowedMethods // "GET,PUT,POST,DELETE,HEAD,OPTIONS"' | tr -d ' ')
             allowed_headers=$(echo "$rule" | jq -r '.AllowedHeaders // "*"')
             exposed_headers=$(echo "$rule" | jq -r '.ExposedHeaders // "*"')
             max_age=$(echo "$rule" | jq -r '.MaxAgeInSeconds // 3600')
@@ -178,7 +178,7 @@ runs:
               --account-name "$STORAGE_ACCOUNT" \
               --account-key "$STORAGE_ACCOUNT_KEY" \
               --services b \
-              --methods "$methods" \
+              --methods $methods \
               --origins "$origins" \
               --allowed-headers "$allowed_headers" \
               --exposed-headers "$exposed_headers" \
