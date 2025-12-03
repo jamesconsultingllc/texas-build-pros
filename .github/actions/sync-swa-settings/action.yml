@@ -13,11 +13,11 @@ inputs:
     description: 'Resource group containing the SWA'
     required: true
   source-environment:
-    description: 'Source environment (slot name or "production"). If not provided, will be auto-detected from git branch ancestry.'
+    description: 'Source environment (slot name or "production"). If not provided, auto-detects using resolve-swa-environment.'
     required: false
     default: ''
   target-environment:
-    description: 'Target environment (slot name or "production"). If not provided, will be auto-detected from current branch.'
+    description: 'Target environment (slot name or "production"). If not provided, auto-detects using resolve-swa-environment.'
     required: false
     default: ''
   direction:
@@ -30,17 +30,14 @@ inputs:
     default: 'false'
   branch-mappings:
     description: |
-      JSON object mapping branch patterns to environments. Supports glob patterns.
+      JSON object mapping branch patterns to environments. Passed to resolve-swa-environment when auto-detecting.
       Default (GitFlow): {"main":"production","master":"production","develop":"development","release/*":"staging","feature/*":"$sanitized","hotfix/*":"$sanitized"}
-      Use "$sanitized" as value to auto-generate slot name from branch.
-      Use "$source:envname" to also set the source environment for that pattern.
     required: false
     default: ''
   parent-branch-mappings:
     description: |
       JSON object mapping branch patterns to their parent environment for source detection.
-      Default (GitFlow): {"feature/*":"develop","hotfix/*":"main","release/*":"develop"}
-      Used when source-environment is not provided and branch matches a pattern.
+      Default (GitFlow): {"feature/*":"development","hotfix/*":"production","release/*":"development"}
     required: false
     default: ''
 
@@ -56,170 +53,67 @@ outputs:
     value: ${{ steps.sync-settings.outputs.target_to_source }}
   resolved-source:
     description: 'The resolved source environment'
-    value: ${{ steps.resolve-environments.outputs.source_env }}
+    value: ${{ steps.set-envs.outputs.source_env }}
   resolved-target:
     description: 'The resolved target environment'
-    value: ${{ steps.resolve-environments.outputs.target_env }}
+    value: ${{ steps.set-envs.outputs.target_env }}
 
 runs:
   using: 'composite'
   steps:
-    - name: Resolve Environments
-      id: resolve-environments
+    - name: Resolve Environments (if not provided)
+      id: resolve
+      if: inputs.source-environment == '' || inputs.target-environment == ''
+      uses: ./.github/actions/resolve-swa-environment
+      with:
+        branch-mappings: ${{ inputs.branch-mappings }}
+        parent-branch-mappings: ${{ inputs.parent-branch-mappings }}
+
+    - name: Set Environment Values
+      id: set-envs
       shell: bash
       run: |
-        swa_name="${{ inputs.swa-name }}"
-        rg="${{ inputs.resource-group }}"
+        # Use provided values or fall back to resolved values
         source_input="${{ inputs.source-environment }}"
         target_input="${{ inputs.target-environment }}"
-        branch_mappings_input='${{ inputs.branch-mappings }}'
-        parent_mappings_input='${{ inputs.parent-branch-mappings }}'
+        resolved_source="${{ steps.resolve.outputs.source-environment }}"
+        resolved_target="${{ steps.resolve.outputs.target-environment }}"
 
-        # Default GitFlow mappings
-        default_branch_mappings='{
-          "main": "production",
-          "master": "production",
-          "develop": "development",
-          "release/*": "staging",
-          "feature/*": "$sanitized",
-          "hotfix/*": "$sanitized"
-        }'
-        
-        default_parent_mappings='{
-          "feature/*": "development",
-          "hotfix/*": "production",
-          "release/*": "development"
-        }'
-
-        # Use provided mappings or defaults
-        if [[ -n "$branch_mappings_input" ]] && [[ "$branch_mappings_input" != "{}" ]]; then
-          branch_mappings="$branch_mappings_input"
-          echo "Using custom branch mappings"
-        else
-          branch_mappings="$default_branch_mappings"
-          echo "Using default GitFlow branch mappings"
-        fi
-
-        if [[ -n "$parent_mappings_input" ]] && [[ "$parent_mappings_input" != "{}" ]]; then
-          parent_mappings="$parent_mappings_input"
-          echo "Using custom parent branch mappings"
-        else
-          parent_mappings="$default_parent_mappings"
-          echo "Using default GitFlow parent mappings"
-        fi
-
-        # Function to match branch against pattern
-        match_pattern() {
-          local branch="$1"
-          local pattern="$2"
-          
-          # Convert glob pattern to regex
-          local regex=$(echo "$pattern" | sed 's/\*/.*/' | sed 's/\?/./')
-          
-          if [[ "$branch" =~ ^${regex}$ ]]; then
-            return 0
-          fi
-          return 1
-        }
-
-        # Function to get environment for a branch
-        get_env_for_branch() {
-          local branch="$1"
-          local mappings="$2"
-          
-          # First try exact match
-          local env=$(echo "$mappings" | jq -r --arg b "$branch" '.[$b] // empty')
-          if [[ -n "$env" ]]; then
-            echo "$env"
-            return
-          fi
-          
-          # Then try pattern matching
-          while IFS= read -r pattern; do
-            if [[ -z "$pattern" ]]; then continue; fi
-            if match_pattern "$branch" "$pattern"; then
-              echo "$mappings" | jq -r --arg p "$pattern" '.[$p]'
-              return
-            fi
-          done < <(echo "$mappings" | jq -r 'keys[]')
-          
-          echo ""
-        }
-
-        # Function to sanitize branch name like SWA does
-        sanitize_branch() {
-          echo "$1" | sed 's/[^a-zA-Z0-9]//g' | cut -c1-20 | tr '[:upper:]' '[:lower:]'
-        }
-
-        # Get current branch
-        branch=""
-        if git rev-parse --git-dir > /dev/null 2>&1; then
-          branch=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "")
-        fi
-        echo "Current branch: $branch"
-
-        # Resolve target environment
-        if [[ -n "$target_input" ]]; then
-          target_env="$target_input"
-          echo "Using provided target environment: $target_env"
-        elif [[ -n "$branch" ]]; then
-          echo "Auto-detecting target environment..."
-          target_env=$(get_env_for_branch "$branch" "$branch_mappings")
-          
-          if [[ "$target_env" == '$sanitized' ]]; then
-            target_env=$(sanitize_branch "$branch")
-          fi
-          
-          if [[ -z "$target_env" ]]; then
-            target_env=$(sanitize_branch "$branch")
-          fi
-          echo "Auto-detected target environment: $target_env (from branch: $branch)"
-        else
-          echo "::error::Cannot auto-detect target environment without git info. Please provide target-environment input."
-          exit 1
-        fi
-        echo "target_env=$target_env" >> "$GITHUB_OUTPUT"
-
-        # Resolve source environment
         if [[ -n "$source_input" ]]; then
           source_env="$source_input"
-          echo "Using provided source environment: $source_env"
-        elif [[ -n "$branch" ]]; then
-          echo "Auto-detecting source environment..."
-          
-          # First check parent mappings
-          source_env=$(get_env_for_branch "$branch" "$parent_mappings")
-          
-          if [[ -z "$source_env" ]]; then
-            # Fall back to git ancestry detection
-            parent_commit=$(git merge-base HEAD origin/develop 2>/dev/null || git merge-base HEAD origin/main 2>/dev/null || echo "")
-            if [[ -n "$parent_commit" ]]; then
-              if git merge-base --is-ancestor "$parent_commit" origin/develop 2>/dev/null; then
-                source_env="development"
-              else
-                source_env="production"
-              fi
-            else
-              source_env="development"
-            fi
-          fi
-          echo "Auto-detected source environment: $source_env"
+          echo "Using provided source: $source_env"
+        elif [[ -n "$resolved_source" ]]; then
+          source_env="$resolved_source"
+          echo "Using resolved source: $source_env"
         else
           source_env="development"
-          echo "No git info available, defaulting source to: $source_env"
+          echo "Defaulting source to: $source_env"
         fi
-        echo "source_env=$source_env" >> "$GITHUB_OUTPUT"
 
-    - name: Find Target Environment
+        if [[ -n "$target_input" ]]; then
+          target_env="$target_input"
+          echo "Using provided target: $target_env"
+        elif [[ -n "$resolved_target" ]]; then
+          target_env="$resolved_target"
+          echo "Using resolved target: $target_env"
+        else
+          echo "::error::Cannot determine target environment"
+          exit 1
+        fi
+
+        echo "source_env=$source_env" >> "$GITHUB_OUTPUT"
+        echo "target_env=$target_env" >> "$GITHUB_OUTPUT"
+
+    - name: Find Target Environment in SWA
       id: find-target
       shell: bash
       run: |
-        target_env="${{ steps.resolve-environments.outputs.target_env }}"
+        target_env="${{ steps.set-envs.outputs.target_env }}"
         swa_name="${{ inputs.swa-name }}"
         rg="${{ inputs.resource-group }}"
 
-        # If target is "production", use as-is
-        if [[ "$target_env" == "production" ]]; then
+        # Handle production (empty string or "production")
+        if [[ -z "$target_env" ]] || [[ "$target_env" == "production" ]]; then
           echo "target_slot=production" >> "$GITHUB_OUTPUT"
           echo "found=true" >> "$GITHUB_OUTPUT"
           exit 0
@@ -256,14 +150,14 @@ runs:
       if: steps.find-target.outputs.found == 'true'
       shell: bash
       run: |
-        source_env="${{ steps.resolve-environments.outputs.source_env }}"
+        source_env="${{ steps.set-envs.outputs.source_env }}"
         target_env="${{ steps.find-target.outputs.target_slot }}"
         swa_name="${{ inputs.swa-name }}"
         rg="${{ inputs.resource-group }}"
         direction="${{ inputs.direction }}"
         overwrite="${{ inputs.overwrite }}"
 
-        echo "Syncing settings: $source_env ↔ $target_env (direction=$direction, overwrite=$overwrite)"
+        echo "Syncing settings: $source_env → $target_env (direction=$direction, overwrite=$overwrite)"
 
         # Function to get settings from an environment
         get_settings() {

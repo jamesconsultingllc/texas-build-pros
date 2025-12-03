@@ -33,33 +33,9 @@ jobs:
           lfs: false
           fetch-depth: 0
 
-      - name: Determine Deployment Slot
+      - name: Resolve Environment
         id: resolve-env
-        shell: bash
-        env:
-          REF_NAME: ${{ github.ref_name }}
-        run: |
-          branch="${REF_NAME}"
-          
-          if [[ "$branch" == "main" ]]; then
-            echo "environment=Production" >> "$GITHUB_OUTPUT"
-            echo "slot=" >> "$GITHUB_OUTPUT"
-          elif [[ "$branch" == "develop" ]]; then
-            echo "environment=Development" >> "$GITHUB_OUTPUT"
-            echo "slot=development" >> "$GITHUB_OUTPUT"
-          elif [[ "$branch" == release/* ]]; then
-            echo "environment=Staging" >> "$GITHUB_OUTPUT"
-            echo "slot=staging" >> "$GITHUB_OUTPUT"
-          elif [[ "$branch" == feature/* ]] || [[ "$branch" == hotfix/* ]]; then
-            # SWA removes all non-alphanumeric characters and truncates
-            sanitized_branch=$(echo "$branch" | sed 's/[^a-zA-Z0-9]//g' | cut -c1-20 | tr '[:upper:]' '[:lower:]')
-            echo "environment=$sanitized_branch" >> "$GITHUB_OUTPUT"
-            echo "slot=$sanitized_branch" >> "$GITHUB_OUTPUT"
-          else
-            sanitized_branch=$(echo "$branch" | sed 's/[^a-zA-Z0-9]//g' | cut -c1-20 | tr '[:upper:]' '[:lower:]')
-            echo "environment=$sanitized_branch" >> "$GITHUB_OUTPUT"
-            echo "slot=$sanitized_branch" >> "$GITHUB_OUTPUT"
-          fi
+        uses: ./.github/actions/resolve-swa-environment
 
       - name: Build And Deploy
         id: builddeploy
@@ -68,7 +44,7 @@ jobs:
           azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN_MANGO_MEADOW_0DA95B810 }}
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           action: upload
-          deployment_environment: ${{ steps.resolve-env.outputs.slot }}
+          deployment_environment: ${{ steps.resolve-env.outputs.target-slot }}
           app_location: "/"
           api_location: "api"
           output_location: "dist"
@@ -77,10 +53,7 @@ jobs:
           VITE_APPINSIGHTS_CONNECTION_STRING: ${{ secrets.APPLICATIONINSIGHTS_CONNECTION_STRING }}
 
       - name: Azure Login with OIDC
-        if: |
-          startsWith(github.ref, 'refs/heads/feature/') || 
-          startsWith(github.ref, 'refs/heads/hotfix/') || 
-          startsWith(github.ref, 'refs/heads/release/')
+        if: steps.resolve-env.outputs.is-preview == 'true'
         uses: azure/login@a65d910e8af852a8061c627c456678983e180302 # v2.2.0
         with:
           client-id: ${{ secrets.AZURE_CLIENT_ID }}
@@ -88,22 +61,16 @@ jobs:
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
       - name: Add Storage CORS for Preview Environment
-        if: |
-          startsWith(github.ref, 'refs/heads/feature/') || 
-          startsWith(github.ref, 'refs/heads/hotfix/') || 
-          startsWith(github.ref, 'refs/heads/release/')
+        if: steps.resolve-env.outputs.is-preview == 'true'
         uses: ./.github/actions/manage-storage-cors
         with:
           action: add
           storage-account: legacybuildersdevst
           storage-account-key: ${{ secrets.STORAGE_ACCOUNT_KEY }}
-          origin: https://${{ steps.resolve-env.outputs.slot }}.mango-meadow-0da95b810.azurestaticapps.net
+          origin: https://${{ steps.resolve-env.outputs.target-slot }}.mango-meadow-0da95b810.azurestaticapps.net
 
       - name: Copy Environment Variables from Source
-        if: |
-          startsWith(github.ref, 'refs/heads/feature/') || 
-          startsWith(github.ref, 'refs/heads/hotfix/') || 
-          startsWith(github.ref, 'refs/heads/release/')
+        if: steps.resolve-env.outputs.is-preview == 'true'
         uses: ./.github/actions/sync-swa-settings
         with:
           swa-name: legacy-builders
@@ -124,6 +91,19 @@ jobs:
       - name: Checkout
         uses: actions/checkout@eef61447b9ff4aafe5dcd4e0bbf5d482be7e7871 # v4.2.1
 
+      - name: Resolve Source Environment (PR head branch)
+        id: source-env
+        uses: ./.github/actions/resolve-swa-environment
+        with:
+          branch: ${{ github.event.pull_request.head.ref }}
+
+      - name: Resolve Target Environment (PR base branch)
+        id: target-env
+        uses: ./.github/actions/resolve-swa-environment
+        with:
+          branch: ${{ github.event.pull_request.base.ref }}
+          detect-source: 'false'
+
       - name: Azure Login with OIDC
         uses: azure/login@a65d910e8af852a8061c627c456678983e180302 # v2.2.0
         with:
@@ -131,22 +111,18 @@ jobs:
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
-      - name: Determine Source Slot
-        id: source-slot
+      - name: Find Source Slot in SWA
+        id: find-slot
         shell: bash
-        env:
-          BRANCH_REF: ${{ github.event.pull_request.head.ref }}
         run: |
-          branch="${BRANCH_REF}"
-          branch_pattern=$(echo "$branch" | sed 's/[^a-zA-Z0-9]//g' | cut -c1-20 | tr '[:upper:]' '[:lower:]')
+          slot_pattern="${{ steps.source-env.outputs.sanitized-branch }}"
           
-          echo "Looking for environment matching pattern: $branch_pattern"
-          echo "slot_pattern=$branch_pattern" >> "$GITHUB_OUTPUT"
+          echo "Looking for environment matching pattern: $slot_pattern"
           
           source_slot=$(az staticwebapp environment list \
             --name legacy-builders \
             --resource-group legacy-builders \
-            --query "[?starts_with(name, '${branch_pattern:0:10}')].name | [0]" -o tsv)
+            --query "[?starts_with(name, '${slot_pattern:0:10}')].name | [0]" -o tsv)
           
           if [[ -n "$source_slot" ]]; then
             echo "Found source environment: $source_slot"
@@ -158,36 +134,22 @@ jobs:
             echo "found=false" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Determine Target Environment
-        id: target-env
-        shell: bash
-        run: |
-          base_ref="${{ github.event.pull_request.base.ref }}"
-          
-          if [[ "$base_ref" == "main" ]]; then
-            echo "target=production" >> "$GITHUB_OUTPUT"
-          elif [[ "$base_ref" == "develop" ]]; then
-            echo "target=development" >> "$GITHUB_OUTPUT"
-          else
-            echo "target=development" >> "$GITHUB_OUTPUT"
-          fi
-
       - name: Sync New Settings to Target
-        if: steps.source-slot.outputs.found == 'true'
+        if: steps.find-slot.outputs.found == 'true'
         uses: ./.github/actions/sync-swa-settings
         with:
           swa-name: legacy-builders
           resource-group: legacy-builders
-          source-environment: ${{ steps.source-slot.outputs.slot }}
-          target-environment: ${{ steps.target-env.outputs.target }}
+          source-environment: ${{ steps.find-slot.outputs.slot }}
+          target-environment: ${{ steps.target-env.outputs.target-environment }}
 
       - name: Delete Preview Environment
         id: delete-env
-        if: steps.source-slot.outputs.found == 'true'
+        if: steps.find-slot.outputs.found == 'true'
         shell: bash
         continue-on-error: true
         run: |
-          source_slot="${{ steps.source-slot.outputs.slot }}"
+          source_slot="${{ steps.find-slot.outputs.slot }}"
           
           echo "Deleting environment: $source_slot"
           az staticwebapp environment delete \
@@ -198,16 +160,16 @@ jobs:
           echo "deleted=true" >> "$GITHUB_OUTPUT"
 
       - name: Remove Storage CORS for Preview Environment
-        if: steps.source-slot.outputs.found == 'true'
+        if: steps.find-slot.outputs.found == 'true'
         uses: ./.github/actions/manage-storage-cors
         with:
           action: remove
           storage-account: legacybuildersdevst
           storage-account-key: ${{ secrets.STORAGE_ACCOUNT_KEY }}
-          origin: https://${{ steps.source-slot.outputs.slot_pattern }}.mango-meadow-0da95b810.azurestaticapps.net
+          origin: https://${{ steps.source-env.outputs.sanitized-branch }}.mango-meadow-0da95b810.azurestaticapps.net
 
       - name: Fallback - Close with SWA Action
-        if: steps.source-slot.outputs.found != 'true'
+        if: steps.find-slot.outputs.found != 'true'
         uses: Azure/static-web-apps-deploy@1a947af9992250f3bc2e68ad0754c0b0c11566c9 # v1.0.0
         with:
           azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN_MANGO_MEADOW_0DA95B810 }}
