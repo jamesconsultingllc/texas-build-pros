@@ -78,6 +78,7 @@ jobs:
           source-environment: ${{ steps.resolve-env.outputs.source-environment }}
           target-environment: ${{ steps.resolve-env.outputs.target-environment }}
           direction: one-way
+          overwrite: 'true'
 
   close_pull_request_job:
     if: |
