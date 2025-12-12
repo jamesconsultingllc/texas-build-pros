@@ -19,13 +19,30 @@ export default defineConfig({
     coverage: {
       provider: 'v8',
       reporter: ['text', 'json', 'html'],
+      all: true,
+      include: ['src/**/*.{ts,tsx}'],
       exclude: [
         'node_modules/',
         'src/test/',
+        'src/main.tsx',
+        'src/vite-env.d.ts',
+        'src/components/ui/**', // shadcn/ui vendor components
+        'src/hooks/use-toast.ts', // shadcn boilerplate
+        'src/lib/telemetry.ts', // Application Insights init (tested via integration)
+        'src/types/**', // Type definitions only
+        'src/App.tsx', // entry point
         '**/*.d.ts',
         '**/*.config.*',
+        '**/*.test.*',
+        '**/*.spec.*',
         '**/index.ts',
       ],
+      thresholds: {
+        statements: 90,
+        branches: 80,
+        functions: 90,
+        lines: 90,
+      },
     },
   },
 });
