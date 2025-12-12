@@ -68,6 +68,7 @@ jobs:
           storage-account: legacybuildersdevst
           storage-account-key: ${{ secrets.STORAGE_ACCOUNT_KEY }}
           origin: https://${{ steps.resolve-env.outputs.target-slot }}.mango-meadow-0da95b810.azurestaticapps.net
+          methods: 'DELETE GET HEAD MERGE OPTIONS POST PUT'
 
       - name: Copy Environment Variables from Source
         if: steps.resolve-env.outputs.is-preview == 'true'
