@@ -9,6 +9,16 @@ on:
       - 'release/**'
       - 'feature/**'
       - 'hotfix/**'
+    paths:
+      - 'src/**'
+      - 'api/**'
+      - 'public/**'
+      - 'index.html'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'vite.config.ts'
+      - 'tsconfig*.json'
+      - 'staticwebapp.config.json'
   pull_request:
     types: [closed]
     branches:
