@@ -62,13 +62,12 @@ jobs:
 
       - name: Add Storage CORS for Preview Environment
         if: steps.resolve-env.outputs.is-preview == 'true'
-        uses: jamesconsultingllc/manage-storage-cors-action@c711bad551006a2960bec53c09c5ea5dc7852a6d # v1
+        uses: jamesconsultingllc/manage-storage-cors-action@e0a35b37afc814015a7b7b9f8f44b78de64e8abc # v1.0.1
         with:
           action: add
           storage-account: legacybuildersdevst
           storage-account-key: ${{ secrets.STORAGE_ACCOUNT_KEY }}
           origin: https://${{ steps.resolve-env.outputs.target-slot }}.mango-meadow-0da95b810.azurestaticapps.net
-          methods: 'DELETE,GET,HEAD,MERGE,OPTIONS,POST,PUT' # Workaround: comma-separated to fix action bug
 
       - name: Copy Environment Variables from Source
         if: steps.resolve-env.outputs.is-preview == 'true'
@@ -165,7 +164,7 @@ jobs:
 
       - name: Remove Storage CORS for Preview Environment
         if: steps.find-slot.outputs.found == 'true'
-        uses: jamesconsultingllc/manage-storage-cors-action@c711bad551006a2960bec53c09c5ea5dc7852a6d # v1
+        uses: jamesconsultingllc/manage-storage-cors-action@e0a35b37afc814015a7b7b9f8f44b78de64e8abc # v1.0.1
         with:
           action: remove
           storage-account: legacybuildersdevst

@@ -80,6 +80,9 @@ jobs:
           dotnet restore
           dotnet build --configuration Release
 
+      - name: Install Azure Functions Core Tools
+        run: npm install -g azure-functions-core-tools@4 --unsafe-perm true
+
       - name: Install SWA CLI
         run: npm install -g @azure/static-web-apps-cli
 
