@@ -1,0 +1,117 @@
+# E2E Test Workflow
+# Runs unit tests and BDD E2E tests with Cucumber and Playwright against SWA CLI
+name: Tests
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+      - 'release/**'
+      - 'feature/**'
+      - 'hotfix/**'
+  pull_request:
+    branches:
+      - main
+      - develop
+
+jobs:
+  unit-tests:
+    runs-on: ubuntu-latest
+    name: Unit Tests
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run unit tests
+        run: npm run test:unit
+
+      - name: Run unit tests with coverage
+        run: npm run test:unit:coverage
+
+      - name: Upload coverage report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: coverage/
+          retention-days: 7
+
+  e2e-tests:
+    runs-on: ubuntu-latest
+    name: E2E Tests
+    needs: unit-tests
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Install frontend dependencies
+        run: npm ci
+
+      - name: Install Playwright browsers
+        run: npx playwright install chromium
+
+      - name: Build frontend
+        run: npm run build
+        env:
+          VITE_APPINSIGHTS_CONNECTION_STRING: ${{ secrets.APPLICATIONINSIGHTS_CONNECTION_STRING }}
+
+      - name: Build API
+        run: |
+          cd api
+          dotnet restore
+          dotnet build --configuration Release
+
+      - name: Install SWA CLI
+        run: npm install -g @azure/static-web-apps-cli
+
+      - name: Run E2E Tests
+        run: |
+          # Start SWA CLI in background with built assets
+          swa start dist --api-location api/bin/Release/net8.0 &
+          SWA_PID=$!
+          
+          # Wait for SWA to be ready
+          echo "Waiting for SWA CLI to start..."
+          npx wait-on http://localhost:4280 --timeout 60000
+          
+          # Run smoke tests (public pages only - no auth required)
+          npm run test:smoke
+          TEST_EXIT_CODE=$?
+          
+          # Cleanup
+          kill $SWA_PID 2>/dev/null || true
+          
+          exit $TEST_EXIT_CODE
+        env:
+          CI: true
+          HEADLESS: true
+          BASE_URL: http://localhost:4280
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-test-results
+          path: |
+            reports/
+            test-results/
+          retention-days: 7

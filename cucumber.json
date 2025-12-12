@@ -1,0 +1,13 @@
+{
+  "default": {
+    "import": ["features/**/*.ts"],
+    "format": [
+      "summary",
+      "progress-bar"
+    ],
+    "formatOptions": {
+      "snippetInterface": "async-await"
+    },
+    "publishQuiet": true
+  }
+}
