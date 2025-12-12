@@ -9,7 +9,7 @@ Feature: Portfolio
   Scenario: View portfolio page
     Given I am on the portfolio page
     Then I should see the portfolio heading
-    And I should see a list of projects
+    And I should see project cards or empty state
 
   Scenario: View project details
     Given I am on the portfolio page

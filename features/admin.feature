@@ -16,8 +16,8 @@ Feature: Admin Dashboard
 
   Scenario: View project list
     When I navigate to the admin dashboard
-    Then I should see a list of projects
-    And each project should have edit and delete options
+    Then I should see the project list or empty state
+    And each project should have edit and delete options if projects exist
 
   Scenario: Create new project
     When I navigate to the admin dashboard

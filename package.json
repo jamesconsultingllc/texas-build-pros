@@ -9,8 +9,8 @@
     "build:dev": "vite build --mode development",
     "lint": "eslint .",
     "preview": "vite preview",
-    "swa:start": "swa start http://localhost:8080 --run \"npm run dev\" --api-devserver-url http://localhost:7233",
-    "swa:build": "npm run build && swa start dist",
+    "swa:start": "swa start http://localhost:8080 --run \"npm run dev\" --api-location api",
+    "swa:build": "npm run build && swa start dist --api-location api",
     "test": "npm run test:unit && npm run test:bdd",
     "test:unit": "vitest run",
     "test:unit:watch": "vitest",
@@ -18,8 +18,9 @@
     "test:bdd": "node --import tsx node_modules/@cucumber/cucumber/bin/cucumber.js",
     "test:smoke": "node --import tsx node_modules/@cucumber/cucumber/bin/cucumber.js --tags @smoke",
     "test:e2e": "node --import tsx node_modules/@cucumber/cucumber/bin/cucumber.js --tags @e2e",
+    "test:e2e:local": "npx start-server-and-test \"npm run swa:start\" http://localhost:4280 \"npm run test:smoke\"",
     "test:validation": "node --import tsx node_modules/@cucumber/cucumber/bin/cucumber.js --tags @validation",
-    "test:ci": "npm run test:unit && npx start-server-and-test 'npm run swa:start' http://localhost:4280 'npm run test:smoke'"
+    "test:ci": "npm run test:unit && npx start-server-and-test \"npm run swa:start\" http://localhost:4280 \"npm run test:smoke\""
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",
