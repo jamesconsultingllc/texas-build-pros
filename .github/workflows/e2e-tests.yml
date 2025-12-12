@@ -1,5 +1,6 @@
-# E2E Test Workflow
-# Runs unit tests and BDD E2E tests with Cucumber and Playwright against SWA CLI
+# Unit Test Workflow
+# Runs unit tests with coverage reporting
+# E2E tests run in the SWA deployment workflow after deployment
 name: Tests
 
 on:
@@ -45,60 +46,4 @@ jobs:
           path: coverage/
           retention-days: 7
 
-  e2e-tests:
-    runs-on: ubuntu-latest
-    name: E2E Tests
-    needs: unit-tests
-    steps:
-      - uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: 'npm'
-
-      - name: Setup .NET
-        uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: '8.0.x'
-
-      - name: Install frontend dependencies
-        run: npm ci
-
-      - name: Install Playwright browsers
-        run: npx playwright install chromium
-
-      - name: Build frontend
-        run: npm run build
-        env:
-          VITE_APPINSIGHTS_CONNECTION_STRING: ${{ secrets.APPLICATIONINSIGHTS_CONNECTION_STRING }}
-
-      - name: Build API
-        run: |
-          cd api
-          dotnet restore
-          dotnet build --configuration Release
-
-      - name: Install Azure Functions Core Tools
-        run: npm install -g azure-functions-core-tools@4 --unsafe-perm true
-
-      - name: Install SWA CLI
-        run: npm install -g @azure/static-web-apps-cli
-
-      - name: Run E2E Tests
-        run: npx start-server-and-test "npm run swa:start:ci" http://localhost:4280 "npm run test:smoke"
-        env:
-          CI: true
-          HEADLESS: true
-          BASE_URL: http://localhost:4280
-
-      - name: Upload test results
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: e2e-test-results
-          path: |
-            reports/
-            test-results/
-          retention-days: 7

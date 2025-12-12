@@ -34,6 +34,9 @@ export class CustomWorld extends World {
    * simulates Azure AD login. This method navigates to that endpoint and
    * fills out the mock login form.
    * 
+   * For deployed SWA slots (non-localhost), it uses the x-ms-client-principal
+   * header injection approach instead.
+   * 
    * @param userId - The mock user ID
    * @param userDetails - Additional user details (roles, idp, etc.)
    */
@@ -44,7 +47,32 @@ export class CustomWorld extends World {
       userRoles: 'authenticated,anonymous',
     };
     
-    // SWA CLI mock auth endpoint
+    // Check if running against deployed SWA (not localhost)
+    const isDeployed = !this.baseUrl.includes('localhost');
+    
+    if (isDeployed) {
+      // For deployed SWA slots, inject x-ms-client-principal header
+      // This header is trusted by SWA for authentication simulation
+      const clientPrincipal = {
+        identityProvider: details.userIdp || 'aad',
+        userId: details.userId || userId,
+        userDetails: details.userId || userId,
+        userRoles: (details.userRoles || 'authenticated,admin').split(/[,\n]/).map(r => r.trim()),
+        claims: [],
+      };
+      
+      const encodedPrincipal = Buffer.from(JSON.stringify(clientPrincipal)).toString('base64');
+      
+      // Set the header for all subsequent requests in this context
+      await this.context.setExtraHTTPHeaders({
+        'x-ms-client-principal': encodedPrincipal,
+      });
+      
+      console.log('Using x-ms-client-principal header for deployed SWA authentication');
+      return;
+    }
+    
+    // SWA CLI mock auth endpoint (localhost only)
     const mockAuthUrl = `${this.baseUrl}/.auth/login/aad?post_login_redirect_uri=/`;
     
     try {
