@@ -240,6 +240,153 @@ VITE_APPINSIGHTS_CONNECTION_STRING=InstrumentationKey=xxx...
 ### Component Library
 Built with **shadcn/ui** - a copy-paste component library based on Radix UI and Tailwind CSS. Components are in `src/components/ui/` and can be modified directly (not installed via npm).
 
+## Development Principles
+
+Follow these principles in order of priority:
+
+1. **Security First** - All code must be secure by default
+2. **Accessibility** - All UI must be accessible (WCAG 2.1 AA)
+3. **Localization** - All user-facing text must be localizable
+4. **Documentation** - All code must be fully documented
+5. **Observability** - Add logging, metrics, and telemetry
+
+### Security Requirements
+
+**Frontend Authorization:**
+- **Hide, Don't Disable**: Unauthorized features must be hidden entirely, not disabled
+- **Conditional Rendering**: Check permissions before rendering menu items, buttons, pages
+- **Route Guards**: Redirect unauthorized route access attempts
+- **No Client-Side Trust**: UI hiding is for UX only; always enforce server-side
+
+**Backend Authorization:**
+- **Tenant Isolation**: Every request scoped to authenticated tenant
+- **Role Validation**: Return `403 Forbidden` for unauthorized access
+- **Deny by Default**: No implicit permissions
+- **Audit Logging**: Log all authorization failures and data modifications
+
+**API Error Codes:**
+Always return structured error responses with error codes (not hardcoded messages):
+- `AUTH_REQUIRED` - Authentication required
+- `AUTH_FORBIDDEN` - Insufficient permissions
+- `RESOURCE_NOT_FOUND` - Resource does not exist
+- `VALIDATION_FAILED` - Input validation error
+- `RATE_LIMITED` - Too many requests
+- `SERVER_ERROR` - Internal server error
+
+### Code Documentation
+
+- **Functions/Methods**: JSDoc (TS/JS) or XML docs (.NET) with purpose, parameters, return values, exceptions
+- **Classes/Interfaces**: Document purpose and usage patterns
+- **Complex Logic**: Inline comments for non-obvious algorithms
+- **Public APIs**: Request/response examples
+- **Configuration**: All environment variables documented
+
+### Accessibility (a11y)
+
+- Use semantic HTML (`<button>`, `<nav>`, `<main>`, `<article>`)
+- Include proper ARIA attributes where needed
+- Keyboard navigation for all interactive elements
+- Focus management for modals, dropdowns, dynamic content
+- Visible focus indicators
+- Sufficient color contrast (WCAG 2.1 AA: 4.5:1 for text)
+- Alt text for all images and meaningful icons
+- Screen reader support with labels and live regions
+
+### Localization (i18n)
+
+- Never hardcode user-facing strings
+- Use translation keys with react-i18next
+- Support RTL layouts (CSS logical properties)
+- Format dates/numbers/currencies per locale
+- Account for text expansion (30-50% longer than English)
+- Use ICU message format for pluralization
+
+---
+
+## Testing
+
+### Test Commands
+
+```bash
+# Unit Tests (Vitest)
+npm run test:unit              # Run unit tests
+npm run test:unit:watch        # Watch mode
+npm run test:unit:coverage     # With coverage report
+
+# BDD E2E Tests (Cucumber + Playwright)
+npm run test:bdd               # Run all BDD tests
+npm run test:smoke             # Quick smoke tests (public pages)
+npm run test:e2e               # Full E2E suite
+npm run test:validation        # Form validation tests
+
+# All Tests
+npm run test                   # Unit + BDD tests
+npm run test:ci                # CI mode (unit + SWA + E2E)
+```
+
+### Test Structure
+
+```
+src/
+├── components/
+│   └── ComponentName.test.tsx  # Component unit tests
+├── hooks/
+│   └── use-hook.test.tsx       # Hook unit tests
+└── test/
+    └── setup.ts                # Vitest setup (mocks, cleanup)
+
+features/
+├── homepage.feature            # BDD feature files
+├── portfolio.feature
+├── contact.feature
+├── admin.feature
+├── step-definitions/           # Cucumber step implementations
+│   ├── navigation.steps.ts
+│   ├── contact.steps.ts
+│   └── auth.steps.ts
+└── support/
+    └── hooks.ts                # Playwright browser setup
+```
+
+### Test Tags
+
+- `@smoke` - Quick sanity tests for public pages (CI default)
+- `@e2e` - Full E2E tests including all pages
+- `@auth` - Tests requiring authentication (admin features)
+- `@validation` - Form validation tests
+
+### Testing Requirements
+
+- **90% minimum code coverage** for all new code
+- Unit tests for all business logic
+- E2E tests for critical user flows
+- Accessibility tests using jest-axe
+- Authorization tests: verify 403 for unauthorized access
+
+### Running E2E Tests Locally
+
+1. Start SWA CLI (includes frontend + API):
+   ```bash
+   npm run swa:start
+   ```
+
+2. In another terminal, run tests:
+   ```bash
+   npm run test:smoke
+   ```
+
+### CI Workflows
+
+- **`tests.yml`** - Runs on every push/PR:
+  1. Unit tests (Vitest)
+  2. Build frontend + API
+  3. Start SWA CLI
+  4. Run E2E smoke tests
+
+- **`codeql.yml`** - Security scanning for C# and TypeScript
+
+---
+
 ## Development Workflow
 
 ### Adding a New Public Route
