@@ -10,6 +10,7 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "swa:start": "swa start http://localhost:8080 --run \"npm run dev\" --api-location api",
+    "swa:start:ci": "swa start dist --api-location api/bin/Release/net8.0",
     "swa:build": "npm run build && swa start dist --api-location api",
     "test": "npm run test:unit && npm run test:bdd",
     "test:unit": "vitest run",

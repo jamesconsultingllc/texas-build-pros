@@ -87,23 +87,7 @@ jobs:
         run: npm install -g @azure/static-web-apps-cli
 
       - name: Run E2E Tests
-        run: |
-          # Start SWA CLI in background with built assets
-          swa start dist --api-location api/bin/Release/net8.0 &
-          SWA_PID=$!
-          
-          # Wait for SWA to be ready
-          echo "Waiting for SWA CLI to start..."
-          npx wait-on http://localhost:4280 --timeout 60000
-          
-          # Run smoke tests (public pages only - no auth required)
-          npm run test:smoke
-          TEST_EXIT_CODE=$?
-          
-          # Cleanup
-          kill $SWA_PID 2>/dev/null || true
-          
-          exit $TEST_EXIT_CODE
+        run: npx start-server-and-test "npm run swa:start:ci" http://localhost:4280 "npm run test:smoke"
         env:
           CI: true
           HEADLESS: true
