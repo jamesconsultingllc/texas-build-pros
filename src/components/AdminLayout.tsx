@@ -65,7 +65,7 @@ const AdminLayout = ({ children }: AdminLayoutProps) => {
                 onClick={closeMobileMenu}
                 className={`flex items-center gap-3 px-4 py-3 rounded-lg mb-2 transition-colors ${
                   isActive
-                    ? 'bg-gold text-white font-semibold'
+                    ? 'bg-gold text-navy font-semibold'
                     : 'text-white/80 hover:bg-white/10'
                 }`}
               >

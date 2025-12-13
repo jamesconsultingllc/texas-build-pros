@@ -18,8 +18,8 @@
   --hsf-button__font-family: inherit;
   --hsf-button__font-size: 1rem;
   --hsf-button__font-weight: 600;
-  --hsf-button__background-color: #B8943F; /* Gold */
-  --hsf-button__color: #FFFFFF; /* White text */
+  --hsf-button__background-color: #C9A033; /* Gold - updated for WCAG 2.1 AA contrast */
+  --hsf-button__color: #001A33; /* Navy text for WCAG 2.1 AA contrast on gold background */
   --hsf-button__border-radius: 0.5rem;
   --hsf-button__padding: 0.75rem 2rem;
   
@@ -71,8 +71,8 @@ All colors MUST be HSL.
     
     --navy: 205 100% 10%;
     --navy-light: 205 60% 20%;
-    --gold: 43 60% 38%; /* Darkened from 45% to 38% for WCAG 2.1 AA contrast (4.5:1) with white text */
-    --gold-light: 43 70% 55%; /* Adjusted proportionally */
+    --gold: 43 65% 48%; /* Lightened from 38% to 48% for WCAG 2.1 AA contrast (4.5:1) against navy background */
+    --gold-light: 43 70% 60%; /* Adjusted proportionally */
 
     --card: 0 0% 100%;
     --card-foreground: 205 100% 10%;

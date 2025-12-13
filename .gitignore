@@ -31,3 +31,4 @@ api/obj
 api/bin
 /.claude
 coverage
+/reports

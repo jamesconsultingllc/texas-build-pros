@@ -15,7 +15,7 @@ const Footer = () => {
           </div>
 
           <div>
-            <h3 className="text-lg font-bold mb-4 text-gold">Services</h3>
+            <h2 className="text-lg font-bold mb-4 text-gold">Services</h2>
             <ul className="space-y-2 text-white/80">
               <li>Real Estate Investment</li>
               <li>Custom Home Building</li>
@@ -25,7 +25,7 @@ const Footer = () => {
           </div>
 
           <div>
-            <h3 className="text-lg font-bold mb-4 text-gold">Contact</h3>
+            <h2 className="text-lg font-bold mb-4 text-gold">Contact</h2>
             <ul className="space-y-2 text-white/80">
               <li>(214) 997-3361</li>
               <li><a href="mailto:contact@lbinvestmentsllc.com">contact@lbinvestmentsllc.com</a></li>
