@@ -250,6 +250,8 @@ Follow these principles in order of priority:
 4. **Localization** - All user-facing text must be localizable
 5. **Documentation** - All code must be fully documented
 6. **Observability** - Add logging, metrics, and telemetry
+7. **SOLID Principles** - Follow Single Responsibility, Open/Closed, Liskov Substitution, Interface Segregation, and Dependency Inversion
+8. **DRY (Don't Repeat Yourself)** - Avoid code duplication; extract reusable components, hooks, and utilities
 
 ### Mobile Responsiveness
 
