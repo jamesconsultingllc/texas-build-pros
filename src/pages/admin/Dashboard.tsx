@@ -14,19 +14,21 @@ const AdminDashboard = () => {
 
   return (
     <AdminLayout>
-      <div className="p-8">
+      <div className="p-4 sm:p-6 md:p-8">
         {/* Header */}
-        <div className="flex justify-between items-center mb-8">
-          <div>
-            <h1 className="text-3xl font-bold text-foreground">Dashboard</h1>
-            <p className="text-muted-foreground mt-1">Welcome back! Here's your portfolio overview.</p>
+        <div className="mb-8">
+          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
+            <div>
+              <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Dashboard</h1>
+              <p className="text-muted-foreground mt-1">Welcome back! Here's your portfolio overview.</p>
+            </div>
+            <Link to="/admin/projects/new" className="w-full sm:w-auto">
+              <Button size="lg" className="bg-gold hover:bg-gold-light w-full sm:w-auto">
+                <Plus className="h-5 w-5 mr-2" />
+                New Project
+              </Button>
+            </Link>
           </div>
-          <Link to="/admin/projects/new">
-            <Button size="lg" className="bg-gold hover:bg-gold-light">
-              <Plus className="h-5 w-5 mr-2" />
-              New Project
-            </Button>
-          </Link>
         </div>
 
         {/* Stats Cards */}

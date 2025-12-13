@@ -240,6 +240,247 @@ VITE_APPINSIGHTS_CONNECTION_STRING=InstrumentationKey=xxx...
 ### Component Library
 Built with **shadcn/ui** - a copy-paste component library based on Radix UI and Tailwind CSS. Components are in `src/components/ui/` and can be modified directly (not installed via npm).
 
+## Development Principles
+
+Follow these principles in order of priority:
+
+1. **Security First** - All code must be secure by default
+2. **Mobile Responsiveness** - All UI must be mobile-friendly (mobile-first approach)
+3. **Accessibility** - All UI must be accessible (WCAG 2.1 AA)
+4. **Localization** - All user-facing text must be localizable
+5. **Documentation** - All code must be fully documented
+6. **Observability** - Add logging, metrics, and telemetry
+7. **SOLID Principles** - Follow Single Responsibility, Open/Closed, Liskov Substitution, Interface Segregation, and Dependency Inversion
+8. **DRY (Don't Repeat Yourself)** - Avoid code duplication; extract reusable components, hooks, and utilities
+
+### Mobile Responsiveness
+
+All UI must be mobile-friendly using a **mobile-first** design approach:
+
+- **Mobile-First CSS**: Write styles for mobile viewports first, then add complexity for larger screens
+- **Touch-Friendly**: All interactive elements must be easily tappable (minimum 44x44px touch targets)
+- **Responsive Layouts**: Use CSS Grid and Flexbox for fluid layouts that adapt to all screen sizes
+- **No Horizontal Scroll**: Content must fit within viewport width on all devices
+- **Collapsible Admin Sidebar**: Sidebar must collapse to hamburger menu on mobile
+- **Responsive Tables**: Use horizontal scroll or card layout for data tables on mobile
+- **Touch-Optimized Forms**: Larger form inputs and adequate spacing for mobile
+
+```tsx
+// ✅ Correct: Mobile-first responsive layout
+<div className="flex flex-col md:flex-row gap-4">
+  <aside className="w-full md:w-64 lg:w-80">
+    {/* Sidebar - full width on mobile, fixed width on desktop */}
+  </aside>
+  <main className="flex-1">
+    {/* Main content */}
+  </main>
+</div>
+
+// ✅ Correct: Responsive grid
+<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+  {items.map(item => <Card key={item.id} />)}
+</div>
+```
+
+**Admin Layout Mobile Requirements:**
+- Hamburger menu toggle for mobile navigation
+- Overlay backdrop when sidebar is open on mobile
+- Bottom navigation for frequently-used actions (optional)
+- Card-based layout for data tables on mobile
+- Test on actual mobile devices, not just browser dev tools
+
+### Security Requirements
+
+**Frontend Authorization:**
+- **Hide, Don't Disable**: Unauthorized features must be hidden entirely, not disabled
+- **Conditional Rendering**: Check permissions before rendering menu items, buttons, pages
+- **Route Guards**: Redirect unauthorized route access attempts
+- **No Client-Side Trust**: UI hiding is for UX only; always enforce server-side
+
+**Backend Authorization:**
+- **Tenant Isolation**: Every request scoped to authenticated tenant
+- **Role Validation**: Return `403 Forbidden` for unauthorized access
+- **Deny by Default**: No implicit permissions
+- **Audit Logging**: Log all authorization failures and data modifications
+
+**API Error Codes:**
+Always return structured error responses with error codes (not hardcoded messages):
+- `AUTH_REQUIRED` - Authentication required
+- `AUTH_FORBIDDEN` - Insufficient permissions
+- `RESOURCE_NOT_FOUND` - Resource does not exist
+- `VALIDATION_FAILED` - Input validation error
+- `RATE_LIMITED` - Too many requests
+- `SERVER_ERROR` - Internal server error
+
+### Code Documentation
+
+- **Functions/Methods**: JSDoc (TS/JS) or XML docs (.NET) with purpose, parameters, return values, exceptions
+- **Classes/Interfaces**: Document purpose and usage patterns
+- **Complex Logic**: Inline comments for non-obvious algorithms
+- **Public APIs**: Request/response examples
+- **Configuration**: All environment variables documented
+
+### Accessibility (a11y)
+
+- Use semantic HTML (`<button>`, `<nav>`, `<main>`, `<article>`)
+- Include proper ARIA attributes where needed
+- Keyboard navigation for all interactive elements
+- Focus management for modals, dropdowns, dynamic content
+- Visible focus indicators
+- Sufficient color contrast (WCAG 2.1 AA: 4.5:1 for text)
+- Alt text for all images and meaningful icons
+- Screen reader support with labels and live regions
+
+### Localization (i18n)
+
+- Never hardcode user-facing strings
+- Use translation keys with react-i18next
+- Support RTL layouts (CSS logical properties)
+- Format dates/numbers/currencies per locale
+- Account for text expansion (30-50% longer than English)
+- Use ICU message format for pluralization
+
+---
+
+## Testing
+
+### Test Commands
+
+```bash
+# Unit Tests (Vitest)
+npm run test:unit              # Run unit tests
+npm run test:unit:watch        # Watch mode
+npm run test:unit:coverage     # With coverage report
+
+# BDD E2E Tests (Cucumber + Playwright)
+npm run test:bdd               # Run all BDD tests
+npm run test:smoke             # Quick smoke tests (public pages)
+npm run test:e2e               # Full E2E suite
+npm run test:validation        # Form validation tests
+npm run test:a11y              # Accessibility tests (E2E)
+npm run test:a11y:unit         # Accessibility tests (unit)
+
+# All Tests
+npm run test                   # Unit + BDD tests
+npm run test:ci                # CI mode (unit + SWA + E2E + a11y)
+```
+
+### Test Structure
+
+```
+src/
+├── components/
+│   └── ComponentName.test.tsx  # Component unit tests
+├── hooks/
+│   └── use-hook.test.tsx       # Hook unit tests
+└── test/
+    └── setup.ts                # Vitest setup (mocks, cleanup)
+
+features/
+├── homepage.feature            # BDD feature files
+├── portfolio.feature
+├── contact.feature
+├── admin.feature
+├── step-definitions/           # Cucumber step implementations
+│   ├── navigation.steps.ts
+│   ├── contact.steps.ts
+│   ├── auth.steps.ts
+│   ├── a11y.steps.ts          # Accessibility step definitions
+│   └── lighthouse.steps.ts    # Lighthouse audit step definitions
+└── support/
+    └── hooks.ts                # Playwright browser setup
+```
+
+### Test Tags
+
+- `@smoke` - Quick sanity tests for public pages (CI default)
+- `@e2e` - Full E2E tests including all pages
+- `@auth` - Tests requiring authentication (admin features)
+- `@validation` - Form validation tests
+- `@a11y` - Accessibility compliance tests (WCAG 2.1 AA)
+
+### Testing Requirements
+
+- **90% minimum code coverage** for all new code
+- Unit tests for all business logic
+- E2E tests for critical user flows
+- **Accessibility tests** - WCAG 2.1 AA compliance using vitest-axe and @axe-core/playwright
+- Authorization tests: verify 403 for unauthorized access
+
+### Accessibility Testing
+
+This project includes comprehensive accessibility testing at both unit and E2E levels:
+
+**Unit-Level (Component) Testing:**
+```tsx
+import { checkA11y } from '@/test/a11y-utils';
+
+it('should have no accessibility violations', async () => {
+  const view = render(<MyComponent />);
+  const results = await checkA11y(view);
+  expect(results).toHaveNoViolations();
+});
+```
+
+**E2E-Level (Page) Testing:**
+```gherkin
+@a11y
+Scenario: Homepage accessibility compliance
+  Given I am on the homepage
+  Then the page should have no accessibility violations
+  And all images should have alt text
+  And all interactive elements should have accessible names
+  And the page should have proper heading hierarchy
+  And the page should have proper landmark regions
+```
+
+**Available Step Definitions:**
+- `the page should have no accessibility violations` - Full WCAG 2.1 AA audit
+- `the page should pass {string} accessibility checks` - Specific WCAG level
+- `all images should have alt text` - Image accessibility
+- `all form inputs should have labels` - Form accessibility
+- `all interactive elements should have accessible names` - Button/link names
+- `the page should have proper heading hierarchy` - H1-H6 structure
+- `the page should have sufficient color contrast` - Color contrast ratio
+- `the page should have proper ARIA attributes` - ARIA validation
+- `the page should have proper landmark regions` - Landmark structure
+
+**Lighthouse Integration:**
+```gherkin
+Then the page should have a Lighthouse accessibility score of at least 90
+```
+
+**Utilities:**
+- `src/test/a11y-utils.ts` - Helper functions with pre-configured axe rules
+- `checkA11y(renderResult)` - Quick accessibility check for components
+- `formAxeConfig` - Form-specific accessibility rules
+- `landmarkAxeConfig` - Landmark-specific accessibility rules
+
+### Running E2E Tests Locally
+
+1. Start SWA CLI (includes frontend + API):
+   ```bash
+   npm run swa:start
+   ```
+
+2. In another terminal, run tests:
+   ```bash
+   npm run test:smoke
+   ```
+
+### CI Workflows
+
+- **`azure-static-web-apps-*.yml`** - Runs on every push/PR:
+  1. Unit tests (Vitest) - including accessibility tests
+  2. Build and deploy to Azure Static Web Apps
+  3. E2E smoke tests
+  4. **Accessibility tests (@a11y tag)** - WCAG 2.1 AA compliance
+  5. Upload test results as artifacts
+
+- **`codeql.yml`** - Security scanning for C# and TypeScript
+
+---
+
 ## Development Workflow
 
 ### Adding a New Public Route
@@ -355,3 +596,59 @@ The existing Static Web App resource:
 - **API Telemetry:** `docs/API-APPLICATION-INSIGHTS-SETUP.md` - Complete API Application Insights guide
 - **Infrastructure:** `infrastructure/README.md` - Bicep deployment guide
 - **API Documentation:** `api/README.md` - API quick start and reference
+
+---
+
+## GitFlow Branch Management
+
+**CRITICAL: Always follow GitFlow when creating branches.**
+
+| Branch Type | Create From | Merge To | Example |
+|-------------|-------------|----------|--------|
+| `feature/*` | `develop` | `develop` | `feature/admin-mobile` |
+| `release/*` | `develop` | `main` + `develop` | `release/1.2.0` |
+| `hotfix/*` | `main` | `main` + `develop` | `hotfix/1.2.1` |
+| `bugfix/*` | `develop` | `develop` | `bugfix/fix-login` |
+
+**Rules:**
+1. **NEVER create feature branches from `main`** - Always from `develop`
+2. Feature branches merge back to `develop`, not `main`
+3. Only `release/*` and `hotfix/*` branches touch `main`
+4. Hotfixes must merge to both `main` AND `develop`
+
+```bash
+# Correct: Create feature from develop
+git checkout develop && git checkout -b feature/my-feature
+
+# Or with git-flow CLI
+git flow feature start my-feature
+```
+
+---
+
+## Implementation Plan Workflow
+
+**Before starting work on any new feature branch**, create `IMPLEMENTATION_PLAN.md` at the repository root:
+
+1. **Create the plan** with feature goals, numbered task checklist, files to modify, and acceptance criteria
+2. **Check off tasks** as progress is made (use `- [x]` for completed items)
+3. **Read the plan** when resuming work to see where you left off
+4. **Delete before merging** - Remove `IMPLEMENTATION_PLAN.md` before merging to `develop`
+
+```markdown
+# Implementation Plan: [Feature Name]
+
+## Tasks
+- [ ] 1. First task
+- [x] 2. Completed task
+- [ ] 3. Next task
+
+## Files to Modify
+- `path/to/file.ts` - description
+
+## Acceptance Criteria
+- [ ] Criterion 1
+- [ ] Criterion 2
+```
+
+This ensures both Copilot and Claude can follow the same plan and know where work left off.

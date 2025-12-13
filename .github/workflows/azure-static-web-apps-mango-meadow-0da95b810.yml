@@ -9,6 +9,16 @@ on:
       - 'release/**'
       - 'feature/**'
       - 'hotfix/**'
+    paths:
+      - 'src/**'
+      - 'api/**'
+      - 'public/**'
+      - 'index.html'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'vite.config.ts'
+      - 'tsconfig*.json'
+      - 'staticwebapp.config.json'
   pull_request:
     types: [closed]
     branches:
@@ -21,10 +31,30 @@ permissions:
   contents: read
 
 jobs:
+  unit_tests_job:
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    name: Unit Tests
+    steps:
+      - uses: actions/checkout@eef61447b9ff4aafe5dcd4e0bbf5d482be7e7871 # v4.2.1
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run unit tests
+        run: npm run test:unit
+
   build_and_deploy_job:
     if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     name: Build and Deploy Job
+    needs: unit_tests_job
     environment: ${{ github.ref == 'refs/heads/main' && 'production' || github.ref == 'refs/heads/develop' && 'development' || 'preview' }}
     steps:
       - uses: actions/checkout@eef61447b9ff4aafe5dcd4e0bbf5d482be7e7871 # v4.2.1
@@ -33,62 +63,9 @@ jobs:
           lfs: false
           fetch-depth: 0
 
-      - name: Determine Source Environment
-        id: source-env
-        shell: bash
-        run: |
-          branch="${{ github.ref_name }}"
-          
-          if [[ "$branch" == feature/* ]] || [[ "$branch" == hotfix/* ]]; then
-            parent_commit=$(git merge-base HEAD origin/develop 2>/dev/null || git merge-base HEAD origin/main 2>/dev/null || echo "")
-            
-            if [[ -n "$parent_commit" ]]; then
-              if git merge-base --is-ancestor "$parent_commit" origin/develop 2>/dev/null; then
-                echo "source=develop" >> "$GITHUB_OUTPUT"
-                echo "source_env=development" >> "$GITHUB_OUTPUT"
-              else
-                echo "source=main" >> "$GITHUB_OUTPUT"
-                echo "source_env=production" >> "$GITHUB_OUTPUT"
-              fi
-            else
-              echo "source=develop" >> "$GITHUB_OUTPUT"
-              echo "source_env=development" >> "$GITHUB_OUTPUT"
-            fi
-          elif [[ "$branch" == release/* ]]; then
-            echo "source=develop" >> "$GITHUB_OUTPUT"
-            echo "source_env=development" >> "$GITHUB_OUTPUT"
-          else
-            echo "source=none" >> "$GITHUB_OUTPUT"
-            echo "source_env=none" >> "$GITHUB_OUTPUT"
-          fi
-
-      - name: Determine Deployment Slot
+      - name: Resolve Environment
         id: resolve-env
-        shell: bash
-        env:
-          REF_NAME: ${{ github.ref_name }}
-        run: |
-          branch="${REF_NAME}"
-          
-          if [[ "$branch" == "main" ]]; then
-            echo "environment=Production" >> "$GITHUB_OUTPUT"
-            echo "slot=" >> "$GITHUB_OUTPUT"
-          elif [[ "$branch" == "develop" ]]; then
-            echo "environment=Development" >> "$GITHUB_OUTPUT"
-            echo "slot=development" >> "$GITHUB_OUTPUT"
-          elif [[ "$branch" == release/* ]]; then
-            echo "environment=Staging" >> "$GITHUB_OUTPUT"
-            echo "slot=staging" >> "$GITHUB_OUTPUT"
-          elif [[ "$branch" == feature/* ]] || [[ "$branch" == hotfix/* ]]; then
-            # SWA removes all non-alphanumeric characters and truncates
-            sanitized_branch=$(echo "$branch" | sed 's/[^a-zA-Z0-9]//g' | cut -c1-20 | tr '[:upper:]' '[:lower:]')
-            echo "environment=$sanitized_branch" >> "$GITHUB_OUTPUT"
-            echo "slot=$sanitized_branch" >> "$GITHUB_OUTPUT"
-          else
-            sanitized_branch=$(echo "$branch" | sed 's/[^a-zA-Z0-9]//g' | cut -c1-20 | tr '[:upper:]' '[:lower:]')
-            echo "environment=$sanitized_branch" >> "$GITHUB_OUTPUT"
-            echo "slot=$sanitized_branch" >> "$GITHUB_OUTPUT"
-          fi
+        uses: jamesconsultingllc/resolve-swa-environment-action@f05fd14e40a2714db885a3d7aa4b7aa5c41f3d5b # v1
 
       - name: Build And Deploy
         id: builddeploy
@@ -97,7 +74,7 @@ jobs:
           azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN_MANGO_MEADOW_0DA95B810 }}
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           action: upload
-          deployment_environment: ${{ steps.resolve-env.outputs.slot }}
+          deployment_environment: ${{ steps.resolve-env.outputs.target-slot }}
           app_location: "/"
           api_location: "api"
           output_location: "dist"
@@ -106,183 +83,80 @@ jobs:
           VITE_APPINSIGHTS_CONNECTION_STRING: ${{ secrets.APPLICATIONINSIGHTS_CONNECTION_STRING }}
 
       - name: Azure Login with OIDC
-        if: |
-          startsWith(github.ref, 'refs/heads/feature/') || 
-          startsWith(github.ref, 'refs/heads/hotfix/') || 
-          startsWith(github.ref, 'refs/heads/release/')
+        if: steps.resolve-env.outputs.is-preview == 'true'
         uses: azure/login@a65d910e8af852a8061c627c456678983e180302 # v2.2.0
         with:
           client-id: ${{ secrets.AZURE_CLIENT_ID }}
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
-      - name: Update Storage CORS for Environment
-        if: |
-          startsWith(github.ref, 'refs/heads/feature/') || 
-          startsWith(github.ref, 'refs/heads/hotfix/') || 
-          startsWith(github.ref, 'refs/heads/release/')
-        shell: bash
-        env:
-          STORAGE_ACCOUNT_KEY: ${{ secrets.STORAGE_ACCOUNT_KEY }}
-        run: |
-          slot="${{ steps.resolve-env.outputs.slot }}"
-
-          # Preview environments only
-          SWA_URL="https://${slot}.mango-meadow-0da95b810.azurestaticapps.net"
-
-          echo "Checking CORS for: $SWA_URL"
-
-          STORAGE_ACCOUNT="legacybuildersdevst"
-
-          if [[ -z "$STORAGE_ACCOUNT_KEY" ]]; then
-            echo "Storage account key not configured in GitHub secrets"
-            echo "Skipping CORS configuration"
-            exit 0
-          fi
-
-          # Get current CORS rules as JSON
-          CORS_RULES=$(az storage cors list \
-            --account-name "$STORAGE_ACCOUNT" \
-            --account-key "$STORAGE_ACCOUNT_KEY" \
-            --services b \
-            -o json 2>/dev/null || echo "[]")
-
-          # Debug: Show the raw CORS rules
-          echo "Raw CORS rules: $CORS_RULES"
-
-          # Check if origin already exists in any rule (using capitalized property names)
-          ORIGIN_EXISTS=$(echo "$CORS_RULES" | jq -r "[.[].AllowedOrigins] | flatten | any(. == \"$SWA_URL\")" 2>/dev/null || echo "false")
-
-          if [[ "$ORIGIN_EXISTS" == "true" ]]; then
-            echo "CORS rule already exists for $SWA_URL"
-          else
-            echo "Adding new CORS rule for $SWA_URL"
-
-            # Count existing rules
-            RULE_COUNT=$(echo "$CORS_RULES" | jq '. | length' 2>/dev/null || echo "0")
-
-            if [[ $RULE_COUNT -ge 5 ]]; then
-              echo "Maximum CORS rules reached. Consolidating origins into single rule..."
-
-              # Extract all unique origins (using capitalized property names)
-              ALL_ORIGINS=$(echo "$CORS_RULES" | jq -r "[.[].AllowedOrigins] | flatten | unique | join(\",\")" 2>/dev/null || echo "")
-
-              # Add the new origin
-              if [[ -n "$ALL_ORIGINS" ]]; then
-                ALL_ORIGINS="$ALL_ORIGINS,$SWA_URL"
-              else
-                ALL_ORIGINS="$SWA_URL"
-              fi
-
-              # Clear existing rules
-              az storage cors clear \
-                --account-name "$STORAGE_ACCOUNT" \
-                --account-key "$STORAGE_ACCOUNT_KEY" \
-                --services b
-
-              # Add single consolidated rule with all origins
-              az storage cors add \
-                --account-name "$STORAGE_ACCOUNT" \
-                --account-key "$STORAGE_ACCOUNT_KEY" \
-                --services b \
-                --methods GET PUT POST DELETE HEAD OPTIONS \
-                --origins "$ALL_ORIGINS" \
-                --allowed-headers "*" \
-                --exposed-headers "*" \
-                --max-age 3600
-
-              echo "Consolidated all origins into single CORS rule"
-            else
-              # Add as new rule if under limit
-              az storage cors add \
-                --account-name "$STORAGE_ACCOUNT" \
-                --account-key "$STORAGE_ACCOUNT_KEY" \
-                --services b \
-                --methods GET PUT POST DELETE HEAD OPTIONS \
-                --origins "$SWA_URL" \
-                --allowed-headers "*" \
-                --exposed-headers "*" \
-                --max-age 3600
-            fi
-          fi
-
-          echo "Current CORS rules:"
-          az storage cors list \
-            --account-name "$STORAGE_ACCOUNT" \
-            --account-key "$STORAGE_ACCOUNT_KEY" \
-            --services b -o table
+      - name: Add Storage CORS for Preview Environment
+        if: steps.resolve-env.outputs.is-preview == 'true'
+        uses: jamesconsultingllc/manage-storage-cors-action@9f8436b1ef7625f81e621a0ebe6546808f68c7be # v1.0.2
+        with:
+          action: add
+          storage-account: legacybuildersdevst
+          storage-account-key: ${{ secrets.STORAGE_ACCOUNT_KEY }}
+          origin: https://${{ steps.resolve-env.outputs.target-slot }}.mango-meadow-0da95b810.azurestaticapps.net
 
       - name: Copy Environment Variables from Source
-        if: |
-          (startsWith(github.ref, 'refs/heads/feature/') || 
-           startsWith(github.ref, 'refs/heads/hotfix/') || 
-           startsWith(github.ref, 'refs/heads/release/')) &&
-          steps.source-env.outputs.source_env != 'none'
-        shell: bash
-        run: |
-          source_env="${{ steps.source-env.outputs.source_env }}"
-          
-          echo "Finding target environment..."
-          
-          # List environments and find the one matching our branch pattern
-          branch="${{ github.ref_name }}"
-          branch_pattern=$(echo "$branch" | sed 's/[^a-zA-Z0-9]//g' | tr '[:upper:]' '[:lower:]')
-          
-          # Get the actual environment name from SWA
-          target_slot=$(az staticwebapp environment list \
-            --name legacy-builders \
-            --resource-group legacy-builders \
-            --query "[?starts_with(name, '${branch_pattern:0:10}')].name | [0]" -o tsv)
-          
-          if [[ -z "$target_slot" ]]; then
-            echo "Could not find target environment matching pattern: $branch_pattern"
-            echo "Available environments:"
-            az staticwebapp environment list \
-              --name legacy-builders \
-              --resource-group legacy-builders \
-              --query "[].name" -o tsv
-            exit 0  # Don't fail, just skip
-          fi
-          
-          echo "Copying settings from $source_env to $target_slot"
-          
-          if [[ "$source_env" == "production" ]]; then
-            settings=$(az staticwebapp appsettings list \
-              --name legacy-builders \
-              --resource-group legacy-builders \
-              --query "properties" -o json)
-          else
-            settings=$(az staticwebapp appsettings list \
-              --name legacy-builders \
-              --resource-group legacy-builders \
-              --environment-name "$source_env" \
-              --query "properties" -o json 2>/dev/null || echo "{}")
-          fi
-          
-          echo "Retrieved settings: $settings"
-          
-          if [[ "$settings" != "{}" ]] && [[ -n "$settings" ]] && [[ "$settings" != "null" ]]; then
-            settings_file="${RUNNER_TEMP}/settings.txt"
-            echo "$settings" | jq -r 'to_entries[] | "\(.key)=\(.value)"' > "$settings_file"
-            
-            while IFS= read -r setting; do
-              key="${setting%%=*}"
-              value="${setting#*=}"
-              
-              if [[ -n "$value" ]] && [[ "$value" != "null" ]]; then
-                echo "Setting $key for $target_slot"
-                az staticwebapp appsettings set \
-                  --name legacy-builders \
-                  --resource-group legacy-builders \
-                  --environment-name "$target_slot" \
-                  --setting-names "$key=$value"
-              fi
-            done < "$settings_file"
-            
-            echo "Settings copied successfully"
-          else
-            echo "No settings found in source environment or settings are empty"
-          fi
+        if: steps.resolve-env.outputs.is-preview == 'true'
+        uses: jamesconsultingllc/sync-swa-settings-action@fb31db1767b3bcc45f546e8b310372079f29cd88 # v1
+        with:
+          swa-name: legacy-builders
+          resource-group: legacy-builders
+          source-environment: ${{ steps.resolve-env.outputs.source-environment }}
+          target-environment: ${{ steps.resolve-env.outputs.target-environment }}
+          direction: one-way
+          overwrite: 'true'
+    outputs:
+      deployed-url: ${{ steps.builddeploy.outputs.static_web_app_url }}
+
+  e2e_tests_job:
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    name: E2E Tests
+    needs: build_and_deploy_job
+    steps:
+      - uses: actions/checkout@eef61447b9ff4aafe5dcd4e0bbf5d482be7e7871 # v4.2.1
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright browsers
+        run: npx playwright install chromium
+
+      - name: Wait for deployment to stabilize
+        run: sleep 30
+
+      - name: Run E2E Smoke Tests
+        run: npm run test:smoke
+        env:
+          CI: true
+          HEADLESS: true
+          BASE_URL: ${{ needs.build_and_deploy_job.outputs.deployed-url }}
+
+      - name: Run Accessibility Tests
+        run: npm run test:a11y
+        env:
+          CI: true
+          HEADLESS: true
+          BASE_URL: ${{ needs.build_and_deploy_job.outputs.deployed-url }}
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-test-results
+          path: reports/
+          if-no-files-found: warn
+          retention-days: 7
 
   close_pull_request_job:
     if: |
@@ -295,6 +169,22 @@ jobs:
     runs-on: ubuntu-latest
     name: Close Preview Environment
     steps:
+      - name: Checkout
+        uses: actions/checkout@eef61447b9ff4aafe5dcd4e0bbf5d482be7e7871 # v4.2.1
+
+      - name: Resolve Source Environment (PR head branch)
+        id: source-env
+        uses: jamesconsultingllc/resolve-swa-environment-action@f05fd14e40a2714db885a3d7aa4b7aa5c41f3d5b # v1
+        with:
+          branch: ${{ github.event.pull_request.head.ref }}
+
+      - name: Resolve Target Environment (PR base branch)
+        id: target-env
+        uses: jamesconsultingllc/resolve-swa-environment-action@f05fd14e40a2714db885a3d7aa4b7aa5c41f3d5b # v1
+        with:
+          branch: ${{ github.event.pull_request.base.ref }}
+          detect-source: 'false'
+
       - name: Azure Login with OIDC
         uses: azure/login@a65d910e8af852a8061c627c456678983e180302 # v2.2.0
         with:
@@ -302,119 +192,65 @@ jobs:
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
-      - name: Find and Delete Environment
-        id: delete-env
+      - name: Find Source Slot in SWA
+        id: find-slot
         shell: bash
-        continue-on-error: true
-        env:
-          BRANCH_REF: ${{ github.event.pull_request.head.ref }}
         run: |
-          branch="${BRANCH_REF}"
-          branch_pattern=$(echo "$branch" | sed 's/[^a-zA-Z0-9]//g' | cut -c1-20 | tr '[:upper:]' '[:lower:]')
+          slot_pattern="${{ steps.source-env.outputs.sanitized-branch }}"
           
-          echo "Looking for environment matching pattern: $branch_pattern"
-          echo "slot=$branch_pattern" >> "$GITHUB_OUTPUT"
+          echo "Looking for environment matching pattern: $slot_pattern"
           
-          target_slot=$(az staticwebapp environment list \
+          source_slot=$(az staticwebapp environment list \
             --name legacy-builders \
             --resource-group legacy-builders \
-            --query "[?starts_with(name, '${branch_pattern:0:10}')].name | [0]" -o tsv)
+            --query "[?starts_with(name, '${slot_pattern:0:10}')].name | [0]" -o tsv)
           
-          if [[ -n "$target_slot" ]]; then
-            echo "Found environment to delete: $target_slot"
-            az staticwebapp environment delete \
-              --name legacy-builders \
-              --resource-group legacy-builders \
-              --environment-name "$target_slot" \
-              --yes
-            echo "deleted=true" >> "$GITHUB_OUTPUT"
+          if [[ -n "$source_slot" ]]; then
+            echo "Found source environment: $source_slot"
+            echo "slot=$source_slot" >> "$GITHUB_OUTPUT"
+            echo "found=true" >> "$GITHUB_OUTPUT"
           else
             echo "No environment found"
-            echo "deleted=false" >> "$GITHUB_OUTPUT"
+            echo "slot=" >> "$GITHUB_OUTPUT"
+            echo "found=false" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Remove Storage CORS for Preview Environment
+      - name: Sync New Settings to Target
+        if: steps.find-slot.outputs.found == 'true'
+        uses: jamesconsultingllc/sync-swa-settings-action@fb31db1767b3bcc45f546e8b310372079f29cd88 # v1
+        with:
+          swa-name: legacy-builders
+          resource-group: legacy-builders
+          source-environment: ${{ steps.find-slot.outputs.slot }}
+          target-environment: ${{ steps.target-env.outputs.target-environment }}
+
+      - name: Delete Preview Environment
+        id: delete-env
+        if: steps.find-slot.outputs.found == 'true'
         shell: bash
         continue-on-error: true
-        env:
-          STORAGE_ACCOUNT_KEY: ${{ secrets.STORAGE_ACCOUNT_KEY }}
         run: |
-          slot="${{ steps.delete-env.outputs.slot }}"
+          source_slot="${{ steps.find-slot.outputs.slot }}"
+          
+          echo "Deleting environment: $source_slot"
+          az staticwebapp environment delete \
+            --name legacy-builders \
+            --resource-group legacy-builders \
+            --environment-name "$source_slot" \
+            --yes
+          echo "deleted=true" >> "$GITHUB_OUTPUT"
 
-          if [[ -z "$slot" ]]; then
-            echo "No slot to clean up CORS for"
-            exit 0
-          fi
-
-          # Construct the SWA URL that was registered
-          SWA_URL="https://${slot}.mango-meadow-0da95b810.azurestaticapps.net"
-
-          echo "Removing CORS rule for: $SWA_URL"
-
-          STORAGE_ACCOUNT="legacybuildersdevst"
-
-          if [[ -z "$STORAGE_ACCOUNT_KEY" ]]; then
-            echo "Storage account key not configured in GitHub secrets"
-            echo "Skipping CORS cleanup"
-            exit 0
-          fi
-
-          # Get current CORS rules
-          CORS_RULES=$(az storage cors list \
-            --account-name "$STORAGE_ACCOUNT" \
-            --account-key "$STORAGE_ACCOUNT_KEY" \
-            --services b \
-            -o json 2>/dev/null || echo "[]")
-
-          echo "Current CORS rules: $CORS_RULES"
-
-          # Clear all CORS rules first
-          az storage cors clear \
-            --account-name "$STORAGE_ACCOUNT" \
-            --account-key "$STORAGE_ACCOUNT_KEY" \
-            --services b
-
-          # Re-add all rules except the one we're removing
-          echo "$CORS_RULES" | jq -c '.[]' | while read -r rule; do
-            origins=$(echo "$rule" | jq -r '.AllowedOrigins // empty')
-
-            # Skip if this rule contains the URL we want to remove
-            if echo "$origins" | grep -q "$SWA_URL"; then
-              echo "Skipping rule with origin: $SWA_URL"
-              continue
-            fi
-
-            # Skip if origins is empty
-            if [[ -z "$origins" ]]; then
-              echo "Skipping rule with empty origins"
-              continue
-            fi
-
-            methods=$(echo "$rule" | jq -r '.AllowedMethods // "GET,PUT,POST,DELETE,HEAD,OPTIONS"')
-            allowed_headers=$(echo "$rule" | jq -r '.AllowedHeaders // "*"')
-            exposed_headers=$(echo "$rule" | jq -r '.ExposedHeaders // "*"')
-            max_age=$(echo "$rule" | jq -r '.MaxAgeInSeconds // 3600')
-
-            echo "Re-adding CORS rule for: $origins"
-            az storage cors add \
-              --account-name "$STORAGE_ACCOUNT" \
-              --account-key "$STORAGE_ACCOUNT_KEY" \
-              --services b \
-              --methods "$methods" \
-              --origins "$origins" \
-              --allowed-headers "$allowed_headers" \
-              --exposed-headers "$exposed_headers" \
-              --max-age "$max_age"
-          done
-
-          echo "CORS cleanup complete. Remaining rules:"
-          az storage cors list \
-            --account-name "$STORAGE_ACCOUNT" \
-            --account-key "$STORAGE_ACCOUNT_KEY" \
-            --services b -o table
+      - name: Remove Storage CORS for Preview Environment
+        if: steps.find-slot.outputs.found == 'true'
+        uses: jamesconsultingllc/manage-storage-cors-action@9f8436b1ef7625f81e621a0ebe6546808f68c7be # v1.0.2
+        with:
+          action: remove
+          storage-account: legacybuildersdevst
+          storage-account-key: ${{ secrets.STORAGE_ACCOUNT_KEY }}
+          origin: https://${{ steps.find-slot.outputs.slot }}.mango-meadow-0da95b810.azurestaticapps.net
 
       - name: Fallback - Close with SWA Action
-        if: steps.delete-env.outputs.deleted != 'true'
+        if: steps.find-slot.outputs.found != 'true'
         uses: Azure/static-web-apps-deploy@1a947af9992250f3bc2e68ad0754c0b0c11566c9 # v1.0.0
         with:
           azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN_MANGO_MEADOW_0DA95B810 }}

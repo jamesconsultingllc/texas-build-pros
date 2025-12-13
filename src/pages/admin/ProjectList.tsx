@@ -51,15 +51,13 @@ const ProjectList = () => {
     <AdminLayout>
       <div className="p-8">
         {/* Header */}
-        <div className="flex justify-between items-center mb-8">
-          <div>
-            <h1 className="text-3xl font-bold text-foreground">Manage Projects</h1>
-            <p className="text-muted-foreground mt-1">
-              {projects.length} total project{projects.length !== 1 ? 's' : ''}
-            </p>
-          </div>
-          <Link to="/admin/projects/new">
-            <Button size="lg" className="bg-gold hover:bg-gold-light">
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold text-foreground">Manage Projects</h1>
+          <p className="text-muted-foreground mt-1">
+            {projects.length} total project{projects.length !== 1 ? 's' : ''}
+          </p>
+          <Link to="/admin/projects/new" className="block mt-4">
+            <Button size="lg" className="w-full bg-gold hover:bg-gold-light text-navy font-semibold">
               <Plus className="h-5 w-5 mr-2" />
               New Project
             </Button>
