@@ -3,6 +3,7 @@ import { render, screen } from '@testing-library/react';
 import { BrowserRouter } from 'react-router-dom';
 import ProjectCard from './ProjectCard';
 import type { Project } from '@/types/project';
+import { checkA11y } from '@/test/a11y-utils';
 
 // Helper to create a mock project with required fields
 const createMockProject = (overrides: Partial<Project> = {}): Project => ({
@@ -107,14 +108,21 @@ describe('ProjectCard', () => {
   });
 
   it('should fall back to first after image when no primary', () => {
-    const project = createMockProject({ 
+    const project = createMockProject({
       primaryAfterImage: null,
       afterImages: ['https://example.com/first.jpg', 'https://example.com/second.jpg'],
     });
-    
+
     renderWithRouter(<ProjectCard project={project} />);
-    
+
     const img = screen.getByRole('img');
     expect(img).toHaveAttribute('src', 'https://example.com/first.jpg');
+  });
+
+  it('should have no accessibility violations', async () => {
+    const project = createMockProject();
+    const view = render(<BrowserRouter><ProjectCard project={project} /></BrowserRouter>);
+    const results = await checkA11y(view);
+    expect(results).toHaveNoViolations();
   });
 });

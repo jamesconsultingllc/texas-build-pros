@@ -27,3 +27,11 @@ Feature: Portfolio
     Given I am viewing a project detail
     When I click the back button
     Then I should be on the portfolio page
+
+  @a11y
+  Scenario: Portfolio page accessibility compliance
+    Given I am on the portfolio page
+    Then the page should have no accessibility violations
+    And all images should have alt text
+    And all interactive elements should have accessible names
+    And the page should have proper heading hierarchy

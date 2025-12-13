@@ -11,6 +11,7 @@ import userEvent from '@testing-library/user-event';
 import { BrowserRouter } from 'react-router-dom';
 import Header from './Header';
 import { AuthProvider } from '@/contexts/AuthContext';
+import { checkA11y } from '@/test/a11y-utils';
 
 // Mock telemetry
 vi.mock('@/lib/telemetry', () => ({
@@ -71,6 +72,12 @@ describe('Header', () => {
       renderHeader();
       const homeLink = screen.getByRole('link', { name: /go to home/i });
       expect(homeLink).toHaveAttribute('href', '/');
+    });
+
+    it('should have no accessibility violations', async () => {
+      const view = renderHeader();
+      const results = await checkA11y(view);
+      expect(results).toHaveNoViolations();
     });
   });
 

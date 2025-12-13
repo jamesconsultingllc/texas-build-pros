@@ -9,6 +9,7 @@ import { describe, it, expect } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { BrowserRouter } from 'react-router-dom';
 import Hero from './Hero';
+import { checkA11y } from '@/test/a11y-utils';
 
 const renderHero = () => {
   return render(
@@ -47,5 +48,11 @@ describe('Hero', () => {
     renderHero();
     const portfolioLink = screen.getByRole('link', { name: /View Our Work/i });
     expect(portfolioLink).toHaveAttribute('href', '/portfolio');
+  });
+
+  it('should have no accessibility violations', async () => {
+    const view = renderHero();
+    const results = await checkA11y(view);
+    expect(results).toHaveNoViolations();
   });
 });

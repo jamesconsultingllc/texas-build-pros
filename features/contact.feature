@@ -35,3 +35,11 @@ Feature: Contact Form
     And I fill in the message field with "I would like to discuss a project"
     And I click the submit button
     Then I should see a success message
+
+  @a11y
+  Scenario: Contact form accessibility compliance
+    When I navigate to the contact section
+    Then the page should have no accessibility violations
+    And all form inputs should have labels
+    And all interactive elements should have accessible names
+    And the page should have sufficient color contrast

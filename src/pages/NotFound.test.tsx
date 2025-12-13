@@ -8,6 +8,7 @@ import { describe, it, expect } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { BrowserRouter } from 'react-router-dom';
 import NotFound from './NotFound';
+import { checkA11y } from '@/test/a11y-utils';
 
 const renderNotFound = () => {
   return render(
@@ -32,5 +33,11 @@ describe('NotFound Page', () => {
     renderNotFound();
     const homeLink = screen.getByRole('link', { name: /home/i });
     expect(homeLink).toHaveAttribute('href', '/');
+  });
+
+  it('should have no accessibility violations', async () => {
+    const view = renderNotFound();
+    const results = await checkA11y(view);
+    expect(results).toHaveNoViolations();
   });
 });
