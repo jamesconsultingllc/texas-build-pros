@@ -568,3 +568,32 @@ git checkout develop && git checkout -b feature/my-feature
 # Or with git-flow CLI
 git flow feature start my-feature
 ```
+
+---
+
+## Implementation Plan Workflow
+
+**Before starting work on any new feature branch**, create `IMPLEMENTATION_PLAN.md` at the repository root:
+
+1. **Create the plan** with feature goals, numbered task checklist, files to modify, and acceptance criteria
+2. **Check off tasks** as progress is made (use `- [x]` for completed items)
+3. **Read the plan** when resuming work to see where you left off
+4. **Delete before merging** - Remove `IMPLEMENTATION_PLAN.md` before merging to `develop`
+
+```markdown
+# Implementation Plan: [Feature Name]
+
+## Tasks
+- [ ] 1. First task
+- [x] 2. Completed task
+- [ ] 3. Next task
+
+## Files to Modify
+- `path/to/file.ts` - description
+
+## Acceptance Criteria
+- [ ] Criterion 1
+- [ ] Criterion 2
+```
+
+This ensures both Copilot and Claude can follow the same plan and know where work left off.

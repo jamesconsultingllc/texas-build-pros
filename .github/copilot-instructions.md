@@ -570,3 +570,64 @@ create_branch({
   from_branch: "main"  // NEVER do this for features
 })
 ```
+
+---
+
+## Implementation Plan Workflow
+
+**Before starting work on any new feature branch**, create an implementation plan:
+
+### Required Steps
+
+1. **Create `IMPLEMENTATION_PLAN.md`** at the repository root with:
+   - Feature description and goals
+   - Numbered task checklist with checkboxes
+   - Files to be created/modified
+   - Testing requirements
+   - Acceptance criteria
+
+2. **Follow the plan** - Check off each item as progress is made:
+   ```markdown
+   ## Tasks
+   - [x] 1. Install dependencies
+   - [x] 2. Create utility function
+   - [ ] 3. Add unit tests
+   - [ ] 4. Update documentation
+   ```
+
+3. **Resume work easily** - When returning to a branch, read `IMPLEMENTATION_PLAN.md` to see where you left off
+
+4. **Remove before merging** - Delete `IMPLEMENTATION_PLAN.md` before merging the feature branch to `develop`
+
+### Template
+
+```markdown
+# Implementation Plan: [Feature Name]
+
+## Overview
+[Brief description of the feature and its goals]
+
+## Tasks
+- [ ] 1. [First task]
+- [ ] 2. [Second task]
+- [ ] 3. [Third task]
+
+## Files to Modify
+- `path/to/file.ts` - [what changes]
+- `path/to/another.ts` - [what changes]
+
+## Testing Requirements
+- [ ] Unit tests for [component/function]
+- [ ] E2E tests for [user flow]
+- [ ] Accessibility tests
+
+## Acceptance Criteria
+- [ ] [Criterion 1]
+- [ ] [Criterion 2]
+```
+
+### Benefits
+
+- **Continuity**: Both Copilot and Claude can read the plan to understand context
+- **Progress tracking**: Know exactly where work left off
+- **Clean merges**: No plan files in develop/main branches
