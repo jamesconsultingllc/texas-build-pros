@@ -357,10 +357,12 @@ npm run test:bdd               # Run all BDD tests
 npm run test:smoke             # Quick smoke tests (public pages)
 npm run test:e2e               # Full E2E suite
 npm run test:validation        # Form validation tests
+npm run test:a11y              # Accessibility tests (E2E)
+npm run test:a11y:unit         # Accessibility tests (unit)
 
 # All Tests
 npm run test                   # Unit + BDD tests
-npm run test:ci                # CI mode (unit + SWA + E2E)
+npm run test:ci                # CI mode (unit + SWA + E2E + a11y)
 ```
 
 ### Test Structure
@@ -382,7 +384,9 @@ features/
 ├── step-definitions/           # Cucumber step implementations
 │   ├── navigation.steps.ts
 │   ├── contact.steps.ts
-│   └── auth.steps.ts
+│   ├── auth.steps.ts
+│   ├── a11y.steps.ts          # Accessibility step definitions
+│   └── lighthouse.steps.ts    # Lighthouse audit step definitions
 └── support/
     └── hooks.ts                # Playwright browser setup
 ```
@@ -393,14 +397,64 @@ features/
 - `@e2e` - Full E2E tests including all pages
 - `@auth` - Tests requiring authentication (admin features)
 - `@validation` - Form validation tests
+- `@a11y` - Accessibility compliance tests (WCAG 2.1 AA)
 
 ### Testing Requirements
 
 - **90% minimum code coverage** for all new code
 - Unit tests for all business logic
 - E2E tests for critical user flows
-- Accessibility tests using jest-axe
+- **Accessibility tests** - WCAG 2.1 AA compliance using vitest-axe and @axe-core/playwright
 - Authorization tests: verify 403 for unauthorized access
+
+### Accessibility Testing
+
+This project includes comprehensive accessibility testing at both unit and E2E levels:
+
+**Unit-Level (Component) Testing:**
+```tsx
+import { checkA11y } from '@/test/a11y-utils';
+
+it('should have no accessibility violations', async () => {
+  const view = render(<MyComponent />);
+  const results = await checkA11y(view);
+  expect(results).toHaveNoViolations();
+});
+```
+
+**E2E-Level (Page) Testing:**
+```gherkin
+@a11y
+Scenario: Homepage accessibility compliance
+  Given I am on the homepage
+  Then the page should have no accessibility violations
+  And all images should have alt text
+  And all interactive elements should have accessible names
+  And the page should have proper heading hierarchy
+  And the page should have proper landmark regions
+```
+
+**Available Step Definitions:**
+- `the page should have no accessibility violations` - Full WCAG 2.1 AA audit
+- `the page should pass {string} accessibility checks` - Specific WCAG level
+- `all images should have alt text` - Image accessibility
+- `all form inputs should have labels` - Form accessibility
+- `all interactive elements should have accessible names` - Button/link names
+- `the page should have proper heading hierarchy` - H1-H6 structure
+- `the page should have sufficient color contrast` - Color contrast ratio
+- `the page should have proper ARIA attributes` - ARIA validation
+- `the page should have proper landmark regions` - Landmark structure
+
+**Lighthouse Integration:**
+```gherkin
+Then the page should have a Lighthouse accessibility score of at least 90
+```
+
+**Utilities:**
+- `src/test/a11y-utils.ts` - Helper functions with pre-configured axe rules
+- `checkA11y(renderResult)` - Quick accessibility check for components
+- `formAxeConfig` - Form-specific accessibility rules
+- `landmarkAxeConfig` - Landmark-specific accessibility rules
 
 ### Running E2E Tests Locally
 
@@ -416,11 +470,12 @@ features/
 
 ### CI Workflows
 
-- **`tests.yml`** - Runs on every push/PR:
-  1. Unit tests (Vitest)
-  2. Build frontend + API
-  3. Start SWA CLI
-  4. Run E2E smoke tests
+- **`azure-static-web-apps-*.yml`** - Runs on every push/PR:
+  1. Unit tests (Vitest) - including accessibility tests
+  2. Build and deploy to Azure Static Web Apps
+  3. E2E smoke tests
+  4. **Accessibility tests (@a11y tag)** - WCAG 2.1 AA compliance
+  5. Upload test results as artifacts
 
 - **`codeql.yml`** - Security scanning for C# and TypeScript
 

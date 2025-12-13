@@ -9,6 +9,7 @@ import { describe, it, expect } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
 import { NavLink } from './NavLink';
+import { checkA11y } from '@/test/a11y-utils';
 
 describe('NavLink', () => {
   it('should render a link with correct text', () => {
@@ -67,5 +68,15 @@ describe('NavLink', () => {
 
     const link = screen.getByRole('link');
     expect(link).not.toHaveClass('active-class');
+  });
+
+  it('should have no accessibility violations', async () => {
+    const view = render(
+      <MemoryRouter>
+        <NavLink to="/test">Test Link</NavLink>
+      </MemoryRouter>
+    );
+    const results = await checkA11y(view);
+    expect(results).toHaveNoViolations();
   });
 });

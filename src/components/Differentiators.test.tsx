@@ -9,6 +9,7 @@ import { describe, it, expect } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { BrowserRouter } from 'react-router-dom';
 import Differentiators from './Differentiators';
+import { checkA11y } from '@/test/a11y-utils';
 
 const renderDifferentiators = () => {
   return render(
@@ -51,5 +52,11 @@ describe('Differentiators', () => {
     renderDifferentiators();
     expect(screen.getByText('Total Transparency')).toBeInTheDocument();
     expect(screen.getByText(/Clear communication at every phase/i)).toBeInTheDocument();
+  });
+
+  it('should have no accessibility violations', async () => {
+    const view = renderDifferentiators();
+    const results = await checkA11y(view);
+    expect(results).toHaveNoViolations();
   });
 });

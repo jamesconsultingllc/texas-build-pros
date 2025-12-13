@@ -9,6 +9,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { BrowserRouter } from 'react-router-dom';
 import CallToAction from './CallToAction';
+import { checkA11y } from '@/test/a11y-utils';
 
 // Mock ContactForm to simplify testing
 vi.mock('./ContactForm', () => ({
@@ -51,5 +52,11 @@ describe('CallToAction', () => {
   it('should render the contact form', () => {
     renderCallToAction();
     expect(screen.getByTestId('contact-form')).toBeInTheDocument();
+  });
+
+  it('should have no accessibility violations', async () => {
+    const view = renderCallToAction();
+    const results = await checkA11y(view);
+    expect(results).toHaveNoViolations();
   });
 });

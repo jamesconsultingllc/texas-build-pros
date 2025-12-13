@@ -142,6 +142,13 @@ jobs:
           HEADLESS: true
           BASE_URL: ${{ needs.build_and_deploy_job.outputs.deployed-url }}
 
+      - name: Run Accessibility Tests
+        run: npm run test:a11y
+        env:
+          CI: true
+          HEADLESS: true
+          BASE_URL: ${{ needs.build_and_deploy_job.outputs.deployed-url }}
+
       - name: Upload test results
         if: always()
         uses: actions/upload-artifact@v4

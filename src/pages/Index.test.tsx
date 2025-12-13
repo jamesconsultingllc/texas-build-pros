@@ -10,6 +10,7 @@ import { render, screen } from '@testing-library/react';
 import { BrowserRouter } from 'react-router-dom';
 import Index from './Index';
 import { AuthProvider } from '@/contexts/AuthContext';
+import { checkA11y } from '@/test/a11y-utils';
 
 // Mock telemetry
 vi.mock('@/lib/telemetry', () => ({
@@ -66,5 +67,11 @@ describe('Index Page', () => {
   it('should have proper page structure', () => {
     const { container } = renderIndex();
     expect(container.querySelector('.min-h-screen')).toBeInTheDocument();
+  });
+
+  it('should have no accessibility violations', async () => {
+    const view = renderIndex();
+    const results = await checkA11y(view);
+    expect(results).toHaveNoViolations();
   });
 });

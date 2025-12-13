@@ -9,6 +9,7 @@ import { describe, it, expect } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { BrowserRouter } from 'react-router-dom';
 import Footer from './Footer';
+import { checkA11y } from '@/test/a11y-utils';
 
 const renderFooter = () => {
   return render(
@@ -56,5 +57,11 @@ describe('Footer', () => {
     renderFooter();
     const homeLink = screen.getByRole('link', { name: /go to home/i });
     expect(homeLink).toHaveAttribute('href', '/');
+  });
+
+  it('should have no accessibility violations', async () => {
+    const view = renderFooter();
+    const results = await checkA11y(view);
+    expect(results).toHaveNoViolations();
   });
 });

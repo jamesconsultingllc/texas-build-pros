@@ -9,6 +9,7 @@ import { describe, it, expect } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { BrowserRouter } from 'react-router-dom';
 import Services from './Services';
+import { checkA11y } from '@/test/a11y-utils';
 
 const renderServices = () => {
   return render(
@@ -51,5 +52,11 @@ describe('Services', () => {
     expect(screen.getByText(/Property acquisition and market analysis/i)).toBeInTheDocument();
     expect(screen.getByText(/Value-add repositioning strategies/i)).toBeInTheDocument();
     expect(screen.getByText(/Spec home development for investors/i)).toBeInTheDocument();
+  });
+
+  it('should have no accessibility violations', async () => {
+    const view = renderServices();
+    const results = await checkA11y(view);
+    expect(results).toHaveNoViolations();
   });
 });

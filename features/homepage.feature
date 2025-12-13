@@ -30,3 +30,11 @@ Feature: Homepage
   Scenario: View footer
     Then I should see the footer
     And the footer should contain contact information
+
+  @a11y
+  Scenario: Homepage accessibility compliance
+    Then the page should have no accessibility violations
+    And all images should have alt text
+    And all interactive elements should have accessible names
+    And the page should have proper heading hierarchy
+    And the page should have proper landmark regions
