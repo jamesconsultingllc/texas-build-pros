@@ -29,7 +29,7 @@ const Hero = () => {
           </p>
           
           <div className="flex flex-col sm:flex-row gap-4">
-            <Button size="lg" className="bg-gold hover:bg-gold-light text-white text-lg h-14 px-8" asChild>
+            <Button size="lg" className="bg-gold hover:bg-gold-light text-navy text-lg h-14 px-8 font-semibold" asChild>
               <a href="#contact">
                 Start Your Project
                 <ArrowRight className="ml-2 h-5 w-5" />

@@ -80,6 +80,13 @@ Then('the {string} should have no accessibility violations', async function (thi
  * Check for specific accessibility features
  */
 Then('all images should have alt text', async function (this: CustomWorld) {
+  // Check if any images exist on the page first
+  const imageCount = await this.page.locator('img').count();
+  if (imageCount === 0) {
+    // No images on page, test passes
+    return;
+  }
+
   const results = await new AxeBuilder({ page: this.page })
     .include('img')
     .withRules(['image-alt'])
@@ -89,6 +96,13 @@ Then('all images should have alt text', async function (this: CustomWorld) {
 });
 
 Then('all form inputs should have labels', async function (this: CustomWorld) {
+  // Check if any form inputs exist on the page first
+  const inputCount = await this.page.locator('input, select, textarea').count();
+  if (inputCount === 0) {
+    // No form inputs on page, test passes
+    return;
+  }
+
   const results = await new AxeBuilder({ page: this.page })
     .include('input, select, textarea')
     .withRules(['label', 'label-title-only'])
