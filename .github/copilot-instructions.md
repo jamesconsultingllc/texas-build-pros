@@ -9,10 +9,13 @@ applyTo: '**'
 Follow these principles in order of priority:
 
 1. **Security First** - All code must be secure by default
-2. **Accessibility** - All UI must be accessible (WCAG 2.1 AA)
-3. **Localization** - All user-facing text must be localizable
-4. **Documentation** - All code must be fully documented
-5. **Observability** - Add logging, metrics, and telemetry
+2. **Mobile Responsiveness** - All UI must be mobile-friendly (mobile-first approach)
+3. **Accessibility** - All UI must be accessible (WCAG 2.1 AA)
+4. **Localization** - All user-facing text must be localizable
+5. **Documentation** - All code must be fully documented
+6. **Observability** - Add logging, metrics, and telemetry
+7. **SOLID Principles** - Follow Single Responsibility, Open/Closed, Liskov Substitution, Interface Segregation, and Dependency Inversion
+8. **DRY (Don't Repeat Yourself)** - Avoid code duplication; extract reusable components, hooks, and utilities
 
 ---
 
@@ -120,6 +123,123 @@ public async Task<IActionResult> GetPublishedProjects() { ... }
 - **Complex Logic**: Inline comments for non-obvious algorithms
 - **Public APIs**: Request/response examples
 - **Configuration**: All environment variables documented
+
+---
+
+## Mobile Responsiveness
+
+All UI must be mobile-friendly using a **mobile-first** design approach:
+
+### Design Principles
+
+1. **Mobile-First CSS**: Write styles for mobile viewports first, then add complexity for larger screens
+2. **Touch-Friendly**: All interactive elements must be easily tappable (minimum 44x44px touch targets)
+3. **Responsive Layouts**: Use CSS Grid and Flexbox for fluid layouts that adapt to all screen sizes
+4. **No Horizontal Scroll**: Content must fit within viewport width on all devices
+
+### Tailwind CSS Breakpoints
+
+Use Tailwind's responsive prefixes consistently:
+
+```tsx
+// ✅ Correct: Mobile-first approach
+<div className="flex flex-col md:flex-row gap-4">
+  <aside className="w-full md:w-64 lg:w-80">
+    {/* Sidebar - full width on mobile, fixed width on desktop */}
+  </aside>
+  <main className="flex-1">
+    {/* Main content */}
+  </main>
+</div>
+
+// ✅ Correct: Responsive grid
+<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+  {items.map(item => <Card key={item.id} />)}
+</div>
+
+// ❌ Incorrect: Desktop-first (requires overrides for mobile)
+<div className="flex flex-row md:flex-col">
+  {/* This is harder to maintain */}
+</div>
+```
+
+### Admin Layout Requirements
+
+- **Collapsible Sidebar**: Sidebar must collapse to hamburger menu on mobile
+- **Bottom Navigation**: Consider bottom nav for frequently-used admin actions on mobile
+- **Responsive Tables**: Use horizontal scroll or card layout for data tables on mobile
+- **Touch-Optimized Forms**: Larger form inputs and adequate spacing for mobile
+
+```tsx
+// ✅ Correct: Responsive admin layout
+<div className="min-h-screen bg-background">
+  {/* Mobile header with hamburger */}
+  <header className="sticky top-0 z-50 flex items-center justify-between p-4 md:hidden">
+    <Logo />
+    <Button variant="ghost" onClick={toggleSidebar} aria-label="Toggle menu">
+      <Menu className="h-6 w-6" />
+    </Button>
+  </header>
+
+  <div className="flex">
+    {/* Sidebar - hidden on mobile, visible on desktop */}
+    <aside className={cn(
+      "fixed inset-y-0 left-0 z-40 w-64 transform bg-sidebar transition-transform md:relative md:translate-x-0",
+      isSidebarOpen ? "translate-x-0" : "-translate-x-full"
+    )}>
+      <Navigation />
+    </aside>
+
+    {/* Overlay for mobile sidebar */}
+    {isSidebarOpen && (
+      <div 
+        className="fixed inset-0 z-30 bg-black/50 md:hidden" 
+        onClick={() => setIsSidebarOpen(false)} 
+      />
+    )}
+
+    <main className="flex-1 p-4 md:p-6 lg:p-8">
+      {children}
+    </main>
+  </div>
+</div>
+```
+
+### Responsive Data Tables
+
+```tsx
+// ✅ Correct: Card layout on mobile, table on desktop
+<div className="hidden md:block">
+  <Table>{/* Full table for desktop */}</Table>
+</div>
+<div className="md:hidden space-y-4">
+  {items.map(item => (
+    <Card key={item.id}>
+      {/* Card layout for mobile */}
+    </Card>
+  ))}
+</div>
+
+// ✅ Alternative: Horizontal scroll for complex tables
+<div className="overflow-x-auto -mx-4 px-4">
+  <Table className="min-w-[600px]">
+    {/* Table with minimum width */}
+  </Table>
+</div>
+```
+
+### Requirements Checklist
+
+- [ ] Mobile-first CSS approach (base styles for mobile, add complexity with breakpoints)
+- [ ] All interactive elements have minimum 44x44px touch targets
+- [ ] Navigation is accessible on all screen sizes (hamburger menu for mobile)
+- [ ] Forms are usable on mobile (appropriate input sizes, spacing)
+- [ ] Tables adapt to mobile (card layout or horizontal scroll)
+- [ ] Images are responsive (`max-w-full h-auto` or `object-fit`)
+- [ ] Text is readable without zooming (minimum 16px body text)
+- [ ] No horizontal scrolling on any viewport
+- [ ] Test on actual mobile devices, not just browser dev tools
+- [ ] Admin section is fully functional on mobile devices
 
 ---
 
@@ -385,3 +505,129 @@ api/
 └── Models/
     └── FeatureDto.cs            # Data transfer objects
 ```
+
+---
+
+## GitFlow Branch Management
+
+This project uses **GitFlow** for branch management. **Always follow these rules when creating branches:**
+
+### Branch Creation Rules
+
+| Branch Type | Create From | Merge To | Naming Pattern |
+|-------------|-------------|----------|----------------|
+| `feature/*` | `develop` | `develop` | `feature/descriptive-name` |
+| `release/*` | `develop` | `main` + `develop` | `release/x.y.z` |
+| `hotfix/*` | `main` | `main` + `develop` | `hotfix/x.y.z` |
+| `bugfix/*` | `develop` | `develop` | `bugfix/descriptive-name` |
+
+### Critical Rules
+
+1. **NEVER create feature branches from `main`** - Always branch from `develop`
+2. **Feature branches merge back to `develop`** - Not directly to `main`
+3. **Only `release/*` and `hotfix/*` branches touch `main`**
+4. **Hotfixes must be merged to both `main` AND `develop`**
+
+### Branch Commands
+
+```bash
+# Start a new feature (always from develop)
+git checkout develop
+git pull origin develop
+git checkout -b feature/my-feature
+
+# Or using git-flow CLI
+git flow feature start my-feature
+
+# Finish feature (merges to develop)
+git flow feature finish my-feature
+
+# Start a release
+git flow release start 1.2.0
+
+# Finish release (merges to main + develop, creates tag)
+git flow release finish 1.2.0
+
+# Emergency hotfix from main
+git flow hotfix start 1.2.1
+git flow hotfix finish 1.2.1
+```
+
+### When Creating Branches Programmatically
+
+When using GitHub API or MCP tools to create branches:
+
+```typescript
+// ✅ Correct: Feature branch from develop
+create_branch({
+  branch: "feature/admin-mobile-responsive",
+  from_branch: "develop"  // ALWAYS develop for features
+})
+
+// ❌ Incorrect: Feature branch from main
+create_branch({
+  branch: "feature/admin-mobile-responsive",
+  from_branch: "main"  // NEVER do this for features
+})
+```
+
+---
+
+## Implementation Plan Workflow
+
+**Before starting work on any new feature branch**, create an implementation plan:
+
+### Required Steps
+
+1. **Create `IMPLEMENTATION_PLAN.md`** at the repository root with:
+   - Feature description and goals
+   - Numbered task checklist with checkboxes
+   - Files to be created/modified
+   - Testing requirements
+   - Acceptance criteria
+
+2. **Follow the plan** - Check off each item as progress is made:
+   ```markdown
+   ## Tasks
+   - [x] 1. Install dependencies
+   - [x] 2. Create utility function
+   - [ ] 3. Add unit tests
+   - [ ] 4. Update documentation
+   ```
+
+3. **Resume work easily** - When returning to a branch, read `IMPLEMENTATION_PLAN.md` to see where you left off
+
+4. **Remove before merging** - Delete `IMPLEMENTATION_PLAN.md` before merging the feature branch to `develop`
+
+### Template
+
+```markdown
+# Implementation Plan: [Feature Name]
+
+## Overview
+[Brief description of the feature and its goals]
+
+## Tasks
+- [ ] 1. [First task]
+- [ ] 2. [Second task]
+- [ ] 3. [Third task]
+
+## Files to Modify
+- `path/to/file.ts` - [what changes]
+- `path/to/another.ts` - [what changes]
+
+## Testing Requirements
+- [ ] Unit tests for [component/function]
+- [ ] E2E tests for [user flow]
+- [ ] Accessibility tests
+
+## Acceptance Criteria
+- [ ] [Criterion 1]
+- [ ] [Criterion 2]
+```
+
+### Benefits
+
+- **Continuity**: Both Copilot and Claude can read the plan to understand context
+- **Progress tracking**: Know exactly where work left off
+- **Clean merges**: No plan files in develop/main branches

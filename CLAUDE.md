@@ -245,10 +245,49 @@ Built with **shadcn/ui** - a copy-paste component library based on Radix UI and 
 Follow these principles in order of priority:
 
 1. **Security First** - All code must be secure by default
-2. **Accessibility** - All UI must be accessible (WCAG 2.1 AA)
-3. **Localization** - All user-facing text must be localizable
-4. **Documentation** - All code must be fully documented
-5. **Observability** - Add logging, metrics, and telemetry
+2. **Mobile Responsiveness** - All UI must be mobile-friendly (mobile-first approach)
+3. **Accessibility** - All UI must be accessible (WCAG 2.1 AA)
+4. **Localization** - All user-facing text must be localizable
+5. **Documentation** - All code must be fully documented
+6. **Observability** - Add logging, metrics, and telemetry
+7. **SOLID Principles** - Follow Single Responsibility, Open/Closed, Liskov Substitution, Interface Segregation, and Dependency Inversion
+8. **DRY (Don't Repeat Yourself)** - Avoid code duplication; extract reusable components, hooks, and utilities
+
+### Mobile Responsiveness
+
+All UI must be mobile-friendly using a **mobile-first** design approach:
+
+- **Mobile-First CSS**: Write styles for mobile viewports first, then add complexity for larger screens
+- **Touch-Friendly**: All interactive elements must be easily tappable (minimum 44x44px touch targets)
+- **Responsive Layouts**: Use CSS Grid and Flexbox for fluid layouts that adapt to all screen sizes
+- **No Horizontal Scroll**: Content must fit within viewport width on all devices
+- **Collapsible Admin Sidebar**: Sidebar must collapse to hamburger menu on mobile
+- **Responsive Tables**: Use horizontal scroll or card layout for data tables on mobile
+- **Touch-Optimized Forms**: Larger form inputs and adequate spacing for mobile
+
+```tsx
+// ✅ Correct: Mobile-first responsive layout
+<div className="flex flex-col md:flex-row gap-4">
+  <aside className="w-full md:w-64 lg:w-80">
+    {/* Sidebar - full width on mobile, fixed width on desktop */}
+  </aside>
+  <main className="flex-1">
+    {/* Main content */}
+  </main>
+</div>
+
+// ✅ Correct: Responsive grid
+<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+  {items.map(item => <Card key={item.id} />)}
+</div>
+```
+
+**Admin Layout Mobile Requirements:**
+- Hamburger menu toggle for mobile navigation
+- Overlay backdrop when sidebar is open on mobile
+- Bottom navigation for frequently-used actions (optional)
+- Card-based layout for data tables on mobile
+- Test on actual mobile devices, not just browser dev tools
 
 ### Security Requirements
 
@@ -502,3 +541,59 @@ The existing Static Web App resource:
 - **API Telemetry:** `docs/API-APPLICATION-INSIGHTS-SETUP.md` - Complete API Application Insights guide
 - **Infrastructure:** `infrastructure/README.md` - Bicep deployment guide
 - **API Documentation:** `api/README.md` - API quick start and reference
+
+---
+
+## GitFlow Branch Management
+
+**CRITICAL: Always follow GitFlow when creating branches.**
+
+| Branch Type | Create From | Merge To | Example |
+|-------------|-------------|----------|--------|
+| `feature/*` | `develop` | `develop` | `feature/admin-mobile` |
+| `release/*` | `develop` | `main` + `develop` | `release/1.2.0` |
+| `hotfix/*` | `main` | `main` + `develop` | `hotfix/1.2.1` |
+| `bugfix/*` | `develop` | `develop` | `bugfix/fix-login` |
+
+**Rules:**
+1. **NEVER create feature branches from `main`** - Always from `develop`
+2. Feature branches merge back to `develop`, not `main`
+3. Only `release/*` and `hotfix/*` branches touch `main`
+4. Hotfixes must merge to both `main` AND `develop`
+
+```bash
+# Correct: Create feature from develop
+git checkout develop && git checkout -b feature/my-feature
+
+# Or with git-flow CLI
+git flow feature start my-feature
+```
+
+---
+
+## Implementation Plan Workflow
+
+**Before starting work on any new feature branch**, create `IMPLEMENTATION_PLAN.md` at the repository root:
+
+1. **Create the plan** with feature goals, numbered task checklist, files to modify, and acceptance criteria
+2. **Check off tasks** as progress is made (use `- [x]` for completed items)
+3. **Read the plan** when resuming work to see where you left off
+4. **Delete before merging** - Remove `IMPLEMENTATION_PLAN.md` before merging to `develop`
+
+```markdown
+# Implementation Plan: [Feature Name]
+
+## Tasks
+- [ ] 1. First task
+- [x] 2. Completed task
+- [ ] 3. Next task
+
+## Files to Modify
+- `path/to/file.ts` - description
+
+## Acceptance Criteria
+- [ ] Criterion 1
+- [ ] Criterion 2
+```
+
+This ensures both Copilot and Claude can follow the same plan and know where work left off.
