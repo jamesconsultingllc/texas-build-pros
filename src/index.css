@@ -71,8 +71,8 @@ All colors MUST be HSL.
     
     --navy: 205 100% 10%;
     --navy-light: 205 60% 20%;
-    --gold: 43 60% 45%;
-    --gold-light: 43 70% 60%;
+    --gold: 43 60% 38%; /* Darkened from 45% to 38% for WCAG 2.1 AA contrast (4.5:1) with white text */
+    --gold-light: 43 70% 55%; /* Adjusted proportionally */
 
     --card: 0 0% 100%;
     --card-foreground: 205 100% 10%;
