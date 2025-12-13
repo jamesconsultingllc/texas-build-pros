@@ -694,39 +694,34 @@ The existing Static Web App resource:
 3. Only `release/*` and `hotfix/*` branches touch `main`
 4. Hotfixes must merge to both `main` AND `develop`
 
-```bash
-# Correct: Create feature from develop
-git checkout develop && git checkout -b feature/my-feature
+### Merge Process (REQUIRED)
 
-# Or with git-flow CLI
-git flow feature start my-feature
+**⚠️ NEVER merge branches directly via `git merge`** - Always create a Pull Request:
+
+1. **Push the branch** to origin
+2. **Create a PR** to `develop` using `gh pr create` or GitHub web UI
+3. **Wait for CI** checks to pass (unit tests, E2E tests, build, CodeQL)
+4. **Merge via GitHub** (not locally) - use squash merge for feature branches
+
+```bash
+# ✅ Correct: Push branch and create PR
+git push origin feature/my-feature
+gh pr create --base develop --head feature/my-feature \
+  --title "feat: description" --body "Details..."
+
+# Wait for CI to pass, then merge via GitHub UI or:
+gh pr merge --squash
+
+# ❌ Incorrect: Never do this
+git checkout develop
+git merge feature/my-feature  # WRONG - bypasses CI and branch protection
+git push origin develop
 ```
+
+**Why PRs are required:**
+- CI pipeline validates the changes (tests, build, security scan)
+- Branch protection rules are enforced
+- Code review can happen before merge
+- Full audit trail of changes in GitHub
 
 ---
-
-## Implementation Plan Workflow
-
-**Before starting work on any new feature branch**, create `IMPLEMENTATION_PLAN.md` at the repository root:
-
-1. **Create the plan** with feature goals, numbered task checklist, files to modify, and acceptance criteria
-2. **Check off tasks** as progress is made (use `- [x]` for completed items)
-3. **Read the plan** when resuming work to see where you left off
-4. **Delete before merging** - Remove `IMPLEMENTATION_PLAN.md` before merging to `develop`
-
-```markdown
-# Implementation Plan: [Feature Name]
-
-## Tasks
-- [ ] 1. First task
-- [x] 2. Completed task
-- [ ] 3. Next task
-
-## Files to Modify
-- `path/to/file.ts` - description
-
-## Acceptance Criteria
-- [ ] Criterion 1
-- [ ] Criterion 2
-```
-
-This ensures both Copilot and Claude can follow the same plan and know where work left off.
