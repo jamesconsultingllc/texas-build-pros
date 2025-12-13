@@ -70,17 +70,87 @@ API will be available at: `http://localhost:7071`
 ```
 api/
 ├── Functions/              # HTTP-triggered functions
-│   └── AdminDashboardFunction.cs
+│   ├── AdminDashboardFunction.cs
+│   ├── AdminProjectsFunction.cs
+│   ├── PublicProjectsFunction.cs
+│   └── ImageFunction.cs
+├── Middleware/            # Authentication & Authorization
+│   ├── AuthenticationMiddleware.cs
+│   └── AuthorizationMiddleware.cs
 ├── Models/                 # Data models and DTOs
 │   ├── Project.cs
-│   └── DTOs.cs
+│   ├── DTOs.cs
+│   ├── ApiError.cs
+│   └── ClientPrincipal.cs
 ├── Services/              # Business logic and data access
 │   ├── CosmosDbService.cs
+│   ├── BlobStorageService.cs
 │   └── TelemetryService.cs
 ├── Program.cs             # Application configuration
 ├── api.csproj            # Project file with dependencies
 └── local.settings.json   # Local configuration (not committed)
 ```
+
+## Security Architecture
+
+The API implements a **middleware-based security model** for authentication and authorization.
+
+### Authentication & Authorization Flow
+
+```
+Request → SWA Route Auth → AuthenticationMiddleware → AuthorizationMiddleware → Function
+                                    ↓                         ↓
+                              Parse x-ms-client-principal    Check admin role
+                              Set context.Items["User"]      Return 401/403 if denied
+```
+
+### Protected Routes
+
+| Route Pattern | Required Role | Description |
+|--------------|---------------|-------------|
+| `/api/manage/*` | `admin` | All admin project management endpoints |
+| `/api/dashboard` | `admin` | Dashboard statistics |
+| `/api/projects/*` | `anonymous` | Public portfolio endpoints (no auth required) |
+
+### Error Responses
+
+All authentication and authorization errors return structured JSON responses:
+
+```json
+{
+  "code": "AUTH_REQUIRED",
+  "message": "Authentication required"
+}
+```
+
+| Error Code | HTTP Status | Description |
+|------------|-------------|-------------|
+| `AUTH_REQUIRED` | 401 | User is not authenticated |
+| `AUTH_FORBIDDEN` | 403 | User lacks required permissions |
+| `RESOURCE_NOT_FOUND` | 404 | Resource does not exist |
+| `VALIDATION_FAILED` | 400 | Input validation error |
+| `SERVER_ERROR` | 500 | Internal server error |
+
+### Security Layers
+
+1. **Route-level (staticwebapp.config.json)**: Azure SWA blocks unauthenticated requests
+2. **AuthenticationMiddleware**: Parses `x-ms-client-principal` header from SWA
+3. **AuthorizationMiddleware**: Enforces admin role for protected routes
+
+### Security Headers
+
+Azure Static Web Apps injects the `x-ms-client-principal` header for authenticated users:
+
+```json
+{
+  "identityProvider": "aad",
+  "userId": "user-guid",
+  "userDetails": "user@email.com",
+  "userRoles": ["authenticated", "anonymous", "admin"]
+}
+```
+
+**Security Note**: In production, Azure SWA strips any client-provided `x-ms-client-principal` header. Only SWA can inject this header after validating the user's session.
 
 ## Key Features
 
@@ -93,6 +163,7 @@ The API has comprehensive telemetry tracking:
 - ✅ Cosmos DB RU consumption monitoring
 - ✅ End-to-end distributed tracing with frontend
 - ✅ Exception tracking with custom properties
+- ✅ Authorization failure auditing
 
 **See:** [API Application Insights Setup Guide](../docs/API-APPLICATION-INSIGHTS-SETUP.md)
 
@@ -105,73 +176,40 @@ The `CosmosDbService` provides:
 - Query optimization
 - Partition key management
 
-**Usage example:**
-
-```csharp
-public class MyFunction
-{
-    private readonly ICosmosDbService _cosmosDb;
-
-    public MyFunction(ICosmosDbService cosmosDb)
-    {
-        _cosmosDb = cosmosDb;
-    }
-
-    [Function("GetProjects")]
-    public async Task<HttpResponseData> Run(
-        [HttpTrigger(AuthorizationLevel.Anonymous, "get")] HttpRequestData req)
-    {
-        var projects = await _cosmosDb.GetProjectsAsync("published");
-        // ...
-    }
-}
-```
-
 ### Telemetry Service
 
-Custom telemetry tracking for business events:
+Custom telemetry tracking including security events:
 
 ```csharp
-public class MyFunction
-{
-    private readonly ITelemetryService _telemetry;
-
-    public MyFunction(ITelemetryService telemetry)
-    {
-        _telemetry = telemetry;
-    }
-
-    [Function("PublishProject")]
-    public async Task<HttpResponseData> Run(...)
-    {
-        // Track custom event
-        _telemetry.TrackEvent("ProjectPublished", new Dictionary<string, string>
-        {
-            { "ProjectId", projectId },
-            { "UserId", userId }
-        });
-
-        // Track custom metric
-        _telemetry.TrackMetric("ProjectPublishCount", 1);
-    }
-}
+// Track authorization failures
+_telemetry.TrackAuthorizationFailure(
+    userId: principal.UserId,
+    route: "/api/manage/projects",
+    method: "POST",
+    reason: "InsufficientRole"
+);
 ```
 
 ## Available Endpoints
 
+### Public Endpoints (No Authentication Required)
+
 | Method | Route | Description |
 |--------|-------|-------------|
-| GET | `/api/admin/dashboard` | Get dashboard statistics |
-| GET | `/api/projects` | List all published projects (public) |
-| GET | `/api/projects/{slug}` | Get project by slug (public) |
-| GET | `/api/admin/projects` | List all projects (admin) |
-| GET | `/api/admin/projects/{id}` | Get project by ID (admin) |
-| POST | `/api/admin/projects` | Create new project (admin) |
-| PUT | `/api/admin/projects/{id}` | Update project (admin) |
-| DELETE | `/api/admin/projects/{id}` | Delete project (admin) |
-| POST | `/api/admin/images/upload` | Upload project image (admin) |
+| GET | `/api/projects` | List all published projects |
+| GET | `/api/projects/{slug}` | Get project by URL slug |
 
-**Note:** Admin endpoints require authentication via Microsoft Entra ID (Azure AD).
+### Admin Endpoints (Requires `admin` Role)
+
+| Method | Route | Description |
+|--------|-------|-------------|
+| GET | `/api/dashboard` | Get dashboard statistics |
+| GET | `/api/manage/projects` | List all projects (all statuses) |
+| GET | `/api/manage/projects/{id}` | Get project by ID |
+| POST | `/api/manage/projects` | Create new project |
+| PUT | `/api/manage/projects/{id}` | Update project |
+| DELETE | `/api/manage/projects/{id}` | Delete project |
+| POST | `/api/manage/images/sas-token` | Generate SAS token for image upload |
 
 ## Development Commands
 
@@ -209,123 +247,33 @@ Configure in `local.settings.json`:
 | `CosmosDbContainerName` | Container name | `projects` |
 | `APPLICATIONINSIGHTS_CONNECTION_STRING` | App Insights connection | `InstrumentationKey=...` |
 
-### Azure Deployment
-
-Configure in Azure Portal or via CLI:
-
-```bash
-# Set environment variable
-az functionapp config appsettings set \
-  --name your-function-app \
-  --resource-group your-resource-group \
-  --settings "APPLICATIONINSIGHTS_CONNECTION_STRING=YourConnectionString"
-```
-
 ## Testing
 
-### Unit Tests
+### E2E Tests with Authentication
 
-```bash
-# Run all tests
-dotnet test
+E2E tests use the `x-ms-client-principal` header to simulate authentication:
 
-# Run with coverage
-dotnet test /p:CollectCoverage=true
+```typescript
+// In features/support/api-helpers.ts
+const clientPrincipal = {
+  identityProvider: 'aad',
+  userId: 'test-admin',
+  userDetails: 'test-admin@test.com',
+  userRoles: ['authenticated', 'anonymous', 'admin'],
+};
+
+const encodedPrincipal = Buffer.from(JSON.stringify(clientPrincipal)).toString('base64');
+
+await fetch('/api/manage/projects', {
+  headers: { 'x-ms-client-principal': encodedPrincipal }
+});
 ```
 
-### Manual Testing
-
-```bash
-# Test dashboard endpoint
-curl http://localhost:7071/api/admin/dashboard
-
-# Test with authentication header
-curl -H "Authorization: Bearer YOUR_TOKEN" \
-  http://localhost:7071/api/admin/projects
-```
-
-## Deployment
-
-### Using Azure Static Web Apps CLI
-
-```bash
-# Build and deploy
-swa deploy --app-location . --api-location api
-```
-
-### Using Azure Functions Core Tools
-
-```bash
-# Deploy to Azure Functions
-func azure functionapp publish your-function-app-name
-```
-
-### Using Azure CLI
-
-```bash
-# Deploy from local build
-az functionapp deployment source config-zip \
-  --resource-group your-resource-group \
-  --name your-function-app \
-  --src api.zip
-```
-
-## Troubleshooting
-
-### Cosmos DB Connection Issues
-
-```bash
-# Test Cosmos DB emulator connection
-curl https://localhost:8081/_explorer/index.html
-
-# Check if container exists
-az cosmosdb sql container show \
-  --account-name your-cosmos-account \
-  --database-name LegacyBuilders \
-  --name projects \
-  --resource-group your-resource-group
-```
-
-### Application Insights Not Working
-
-1. Verify connection string is set:
-   ```bash
-   echo $APPLICATIONINSIGHTS_CONNECTION_STRING
-   ```
-
-2. Check Azure Portal > Application Insights > Live Metrics
-
-3. Enable verbose logging:
-   ```bash
-   func start --verbose
-   ```
-
-### Function Not Triggering
-
-1. Check function.json is generated (done automatically)
-2. Verify route configuration in `[HttpTrigger]` attribute
-3. Check CORS settings in `host.json`
+This works with SWA CLI in local development. In production, Azure SWA sanitizes this header.
 
 ## Documentation
 
+- [API Implementation Plan](../docs/API-IMPLEMENTATION-PLAN.md) - API Security Architecture
 - [API Application Insights Setup](../docs/API-APPLICATION-INSIGHTS-SETUP.md) - Complete telemetry guide
 - [Authentication Implementation Plan](../docs/authentication-implementation-plan.md) - Backend implementation checklist
 - [Main CLAUDE.md](../CLAUDE.md) - Project overview and architecture
-
-## Package Dependencies
-
-Key NuGet packages:
-
-- **Microsoft.Azure.Functions.Worker** (v2.50.0) - Azure Functions runtime
-- **Microsoft.Azure.Cosmos** (v3.44.1) - Cosmos DB SDK
-- **Microsoft.ApplicationInsights.WorkerService** (v2.23.0) - Application Insights SDK
-- **Microsoft.Azure.Functions.Worker.ApplicationInsights** (v2.50.0) - Functions + App Insights integration
-
-## Support
-
-For issues or questions:
-
-1. Check the documentation in `/docs`
-2. Review Azure Functions logs in Azure Portal
-3. Check Application Insights for errors and performance issues
-4. Review CLAUDE.md for architecture decisions

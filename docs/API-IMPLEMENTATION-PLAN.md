@@ -13,14 +13,229 @@ GET  /api/projects/{slug}              - Get single project by slug
 
 ### Admin Endpoints (Authenticated Access)
 ```
-GET  /api/admin/dashboard               - Get dashboard stats + recent projects
-GET  /api/admin/projects                - Get all projects (all statuses)
-GET  /api/admin/projects/{id}           - Get single project by ID
-POST /api/admin/projects                - Create new project
-PUT  /api/admin/projects/{id}           - Update existing project
-DELETE /api/admin/projects/{id}         - Delete project
-POST /api/admin/images/upload           - Upload image to Azure Blob Storage
+GET  /api/dashboard                     - Get dashboard stats + recent projects
+GET  /api/manage/projects               - Get all projects (all statuses)
+GET  /api/manage/projects/{id}          - Get single project by ID
+POST /api/manage/projects               - Create new project
+PUT  /api/manage/projects/{id}          - Update existing project
+DELETE /api/manage/projects/{id}        - Delete project
+POST /api/manage/images/sas-token       - Generate SAS token for image upload
 ```
+
+## API Security Architecture
+
+### Overview
+
+Security is implemented using a **middleware-based approach** for authentication and authorization. This follows the DRY principle and ensures consistent security across all admin endpoints.
+
+```
+Request Flow:
+┌─────────────┐    ┌──────────────────┐    ┌───────────────────────┐    ┌──────────────────────┐    ┌──────────┐
+│   Request   │───▶│ SWA Route Auth   │───▶│ AuthenticationMiddleware │───▶│ AuthorizationMiddleware │───▶│ Function │
+└─────────────┘    └──────────────────┘    └───────────────────────┘    └──────────────────────┘    └──────────┘
+                          │                         │                            │
+                          ▼                         ▼                            ▼
+                   Route-level auth          Parse x-ms-client-principal    Check admin role
+                   (staticwebapp.config)     Store in context.Items         Return 401/403 if denied
+```
+
+### Layer 1: Azure Static Web Apps Route Protection
+
+The `staticwebapp.config.json` provides first-line defense by blocking unauthenticated requests at the SWA level:
+
+```json
+{
+  "routes": [
+    {
+      "route": "/api/manage/*",
+      "allowedRoles": ["authenticated"]
+    },
+    {
+      "route": "/api/dashboard",
+      "allowedRoles": ["authenticated"]
+    },
+    {
+      "route": "/api/projects/*",
+      "allowedRoles": ["anonymous"]
+    }
+  ]
+}
+```
+
+### Layer 2: Authentication Middleware
+
+The `AuthenticationMiddleware` parses the `x-ms-client-principal` header injected by Azure Static Web Apps:
+
+```csharp
+/// <summary>
+/// Middleware that extracts and validates the Azure Static Web Apps client principal.
+/// </summary>
+/// <remarks>
+/// Azure SWA injects the x-ms-client-principal header for authenticated requests.
+/// This middleware decodes and stores the principal in FunctionContext.Items.
+/// </remarks>
+public class AuthenticationMiddleware : IFunctionsWorkerMiddleware
+{
+    public async Task Invoke(FunctionContext context, FunctionExecutionDelegate next)
+    {
+        // 1. Get HttpRequestData from context
+        // 2. Extract x-ms-client-principal header
+        // 3. Base64 decode and parse to ClientPrincipal
+        // 4. Store in context.Items["ClientPrincipal"]
+        // 5. Call next(context)
+    }
+}
+```
+
+### Layer 3: Authorization Middleware
+
+The `AuthorizationMiddleware` enforces role-based access control for admin routes:
+
+```csharp
+/// <summary>
+/// Middleware that enforces admin role requirement for protected routes.
+/// </summary>
+/// <remarks>
+/// Routes matching /api/manage/* or /api/dashboard require the "admin" role.
+/// Returns 401 AUTH_REQUIRED if not authenticated.
+/// Returns 403 AUTH_FORBIDDEN if authenticated but not admin.
+/// </remarks>
+public class AuthorizationMiddleware : IFunctionsWorkerMiddleware
+{
+    private readonly string[] _adminRoutes = { "/api/manage", "/api/dashboard" };
+    
+    public async Task Invoke(FunctionContext context, FunctionExecutionDelegate next)
+    {
+        // 1. Check if route requires admin access
+        // 2. If admin required:
+        //    a. Get ClientPrincipal from context.Items
+        //    b. If null → return 401 with AUTH_REQUIRED code
+        //    c. If no admin role → return 403 with AUTH_FORBIDDEN code
+        //    d. Log authorization failure
+        // 3. Call next(context)
+    }
+}
+```
+
+### Middleware Registration
+
+Register middleware in `Program.cs`:
+
+```csharp
+var host = new HostBuilder()
+    .ConfigureFunctionsWebApplication(workerApp =>
+    {
+        // Order matters: Authentication must run before Authorization
+        workerApp.UseMiddleware<AuthenticationMiddleware>();
+        workerApp.UseMiddleware<AuthorizationMiddleware>();
+    })
+    .ConfigureServices(services =>
+    {
+        // ... service registrations
+    })
+    .Build();
+```
+
+### Structured Error Responses
+
+All authentication/authorization errors return structured responses with error codes:
+
+```csharp
+/// <summary>
+/// Structured error response for API errors.
+/// </summary>
+/// <remarks>
+/// Error codes are used for client-side localization instead of hardcoded messages.
+/// </remarks>
+public class ApiError
+{
+    /// <summary>Error code for client-side localization.</summary>
+    public string Code { get; set; }
+    
+    /// <summary>Default English message (fallback).</summary>
+    public string Message { get; set; }
+    
+    /// <summary>Optional additional details.</summary>
+    public object? Details { get; set; }
+}
+
+// Standard error codes:
+public static class ErrorCodes
+{
+    public const string AuthRequired = "AUTH_REQUIRED";
+    public const string AuthForbidden = "AUTH_FORBIDDEN";
+    public const string ResourceNotFound = "RESOURCE_NOT_FOUND";
+    public const string ValidationFailed = "VALIDATION_FAILED";
+    public const string ServerError = "SERVER_ERROR";
+}
+```
+
+### Client Principal Model
+
+```csharp
+/// <summary>
+/// Represents the Azure Static Web Apps client principal from x-ms-client-principal header.
+/// </summary>
+public class ClientPrincipal
+{
+    public string IdentityProvider { get; set; } = string.Empty;
+    public string UserId { get; set; } = string.Empty;
+    public string UserDetails { get; set; } = string.Empty;
+    public IEnumerable<string> UserRoles { get; set; } = Array.Empty<string>();
+    
+    /// <summary>
+    /// Checks if the user has a specific role.
+    /// </summary>
+    public bool IsInRole(string role) => 
+        UserRoles.Contains(role, StringComparer.OrdinalIgnoreCase);
+}
+```
+
+### E2E Test Compatibility
+
+For E2E tests, authentication is mocked by injecting the `x-ms-client-principal` header:
+
+```typescript
+// In features/support/api-helpers.ts
+const clientPrincipal = {
+  identityProvider: 'aad',
+  userId: 'test-admin',
+  userDetails: 'test-admin@test.com',
+  userRoles: ['authenticated', 'anonymous', 'admin'],
+};
+
+const encodedPrincipal = Buffer.from(JSON.stringify(clientPrincipal)).toString('base64');
+
+await fetch(`${baseUrl}/api/manage/projects`, {
+  headers: {
+    'x-ms-client-principal': encodedPrincipal,
+    'Content-Type': 'application/json'
+  }
+});
+```
+
+### Security Logging
+
+All authorization failures are logged for audit purposes:
+
+```csharp
+_logger.LogWarning(
+    "Authorization failed: User {UserId} attempted {Method} {Route} without {RequiredRole} role",
+    principal?.UserId ?? "anonymous",
+    request.Method,
+    request.Url.AbsolutePath,
+    "admin"
+);
+
+_telemetryService.TrackEvent("AuthorizationFailure", new Dictionary<string, string>
+{
+    { "UserId", principal?.UserId ?? "anonymous" },
+    { "Route", request.Url.AbsolutePath },
+    { "Reason", principal == null ? "NotAuthenticated" : "InsufficientRole" }
+});
+```
+
+---
 
 ## Data Models
 

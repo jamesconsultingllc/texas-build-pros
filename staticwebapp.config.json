@@ -1,4 +1,32 @@
 {
+  "routes": [
+    {
+      "route": "/api/manage/*",
+      "allowedRoles": ["authenticated"]
+    },
+    {
+      "route": "/api/dashboard",
+      "allowedRoles": ["authenticated"]
+    },
+    {
+      "route": "/api/projects/*",
+      "allowedRoles": ["anonymous"]
+    },
+    {
+      "route": "/api/projects",
+      "allowedRoles": ["anonymous"]
+    },
+    {
+      "route": "/admin/*",
+      "allowedRoles": ["authenticated"]
+    }
+  ],
+  "responseOverrides": {
+    "401": {
+      "statusCode": 401,
+      "redirect": "/.auth/login/aad?post_login_redirect_uri=.referrer"
+    }
+  },
   "navigationFallback": {
     "rewrite": "/index.html",
     "exclude": ["/api/*", "/assets/*", "/*.{css,scss,js,png,gif,ico,jpg,svg}"]

@@ -11,6 +11,84 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **Authentication:** Microsoft Entra ID (Azure AD) with managed identities
 - **Monitoring:** Azure Application Insights (free tier)
 
+---
+
+## Documentation Workflow
+
+### ALWAYS Consult Docs Before Implementation
+
+**Before starting any implementation**, consult the relevant documentation in the `docs/` folder:
+
+| Task Type | Consult These Docs |
+|-----------|-------------------|
+| API Development | `docs/API-IMPLEMENTATION-PLAN.md`, `docs/authentication-implementation-plan.md` |
+| Authentication/Security | `docs/authentication-implementation-plan.md`, `docs/API-IMPLEMENTATION-PLAN.md` (Security section) |
+| Telemetry | `docs/API-APPLICATION-INSIGHTS-SETUP.md`, `docs/telemetry-implementation.md` |
+| Local Development | `docs/LOCAL-DEVELOPMENT-GUIDE.md` |
+| Environment Setup | `docs/ENVIRONMENT-SETUP-GUIDE.md`, `docs/ENVIRONMENT-QUICK-START.md` |
+| Deployment | `docs/Deployment.md` |
+
+### Keep Documentation Updated
+
+**Before closing any feature branch**, you MUST:
+
+1. **Update relevant docs** if the implementation changes any documented behavior
+2. **Add new documentation** for new features or patterns
+3. **Mark completed items** in implementation checklists (e.g., `docs/authentication-implementation-plan.md`)
+4. **Remove `IMPLEMENTATION_PLAN.md`** from repo root (it's branch-specific)
+
+---
+
+## Feature Branch Closing Checklist
+
+**Before merging any feature branch to `develop`**, verify ALL of the following:
+
+### Required Checks
+
+```bash
+# 1. Build succeeds
+cd api && dotnet build
+npm run build
+
+# 2. All unit tests pass
+npm run test:unit
+
+# 3. E2E tests pass (run against SWA CLI)
+npm run swa:start  # In terminal 1
+npm run test:smoke # In terminal 2
+
+# 4. Accessibility tests pass
+npm run test:a11y:unit
+```
+
+### Checklist
+
+- [ ] **API builds without errors** (`cd api && dotnet build`)
+- [ ] **Frontend builds without errors** (`npm run build`)
+- [ ] **Unit tests pass** (`npm run test:unit`)
+- [ ] **E2E smoke tests pass** (`npm run test:smoke`)
+- [ ] **Accessibility tests pass** (`npm run test:a11y:unit`)
+- [ ] **Documentation updated** (see Documentation Workflow above)
+- [ ] **`IMPLEMENTATION_PLAN.md` deleted** (it's branch-specific)
+
+---
+
+## Documentation Structure
+
+```
+docs/
+├── API-IMPLEMENTATION-PLAN.md          # API endpoints, data models, security architecture
+├── API-APPLICATION-INSIGHTS-SETUP.md   # Backend telemetry configuration
+├── authentication-implementation-plan.md # Full auth implementation checklist
+├── ENVIRONMENT-SETUP-GUIDE.md          # Environment configuration
+├── ENVIRONMENT-QUICK-START.md          # Quick environment commands
+├── LOCAL-DEVELOPMENT-GUIDE.md          # Local dev setup
+├── telemetry-implementation.md         # Frontend telemetry details
+└── Deployment.md                       # Deployment procedures
+```
+
+---
+
 ## Architecture Principles
 
 ### Cost Optimization (Free/Low-Cost Tiers)

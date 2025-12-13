@@ -19,6 +19,89 @@ Follow these principles in order of priority:
 
 ---
 
+## Documentation Requirements
+
+### Consult Documentation Before Implementation
+
+**ALWAYS** consult the relevant documentation in the `docs/` folder before starting any implementation:
+
+| Task Type | Consult These Docs |
+|-----------|-------------------|
+| API Development | `docs/API-IMPLEMENTATION-PLAN.md`, `docs/authentication-implementation-plan.md` |
+| Authentication/Security | `docs/authentication-implementation-plan.md`, `docs/API-IMPLEMENTATION-PLAN.md` (Security section) |
+| Telemetry | `docs/API-APPLICATION-INSIGHTS-SETUP.md`, `docs/telemetry-implementation.md` |
+| Local Development | `docs/LOCAL-DEVELOPMENT-GUIDE.md` |
+| Environment Setup | `docs/ENVIRONMENT-SETUP-GUIDE.md`, `docs/ENVIRONMENT-QUICK-START.md` |
+| Deployment | `docs/Deployment.md` |
+
+### Keep Documentation Updated
+
+**Before closing any feature branch**, ensure:
+
+1. **Update relevant docs** if the implementation changes any documented behavior
+2. **Add new documentation** for new features or patterns
+3. **Mark completed items** in implementation checklists (e.g., `docs/authentication-implementation-plan.md`)
+4. **Remove `IMPLEMENTATION_PLAN.md`** from repo root (it's branch-specific)
+
+### Documentation Structure
+
+```
+docs/
+├── API-IMPLEMENTATION-PLAN.md          # API endpoints, data models, security architecture
+├── API-APPLICATION-INSIGHTS-SETUP.md   # Backend telemetry configuration
+├── authentication-implementation-plan.md # Full auth implementation checklist
+├── ENVIRONMENT-SETUP-GUIDE.md          # Environment configuration
+├── ENVIRONMENT-QUICK-START.md          # Quick environment commands
+├── LOCAL-DEVELOPMENT-GUIDE.md          # Local dev setup
+├── telemetry-implementation.md         # Frontend telemetry details
+└── Deployment.md                       # Deployment procedures
+```
+
+---
+
+## Feature Branch Closing Checklist
+
+**Before merging any feature branch to `develop`**, verify ALL of the following:
+
+### Required Checks
+
+```bash
+# 1. Build succeeds
+cd api && dotnet build
+npm run build
+
+# 2. All unit tests pass
+npm run test:unit
+
+# 3. E2E tests pass (run against SWA CLI)
+npm run swa:start  # In terminal 1
+npm run test:smoke # In terminal 2
+
+# 4. Accessibility tests pass
+npm run test:a11y:unit
+```
+
+### Checklist
+
+- [ ] **API builds without errors** (`cd api && dotnet build`)
+- [ ] **Frontend builds without errors** (`npm run build`)
+- [ ] **Unit tests pass** (`npm run test:unit`)
+- [ ] **E2E smoke tests pass** (`npm run test:smoke`)
+- [ ] **Accessibility tests pass** (`npm run test:a11y:unit`)
+- [ ] **Documentation updated** (see Documentation Requirements above)
+- [ ] **`IMPLEMENTATION_PLAN.md` deleted** (it's branch-specific)
+
+### CI Will Also Verify
+
+The CI pipeline (`azure-static-web-apps-*.yml`) runs on every PR and will block merge if:
+- Unit tests fail
+- Build fails
+- E2E smoke tests fail
+- Accessibility tests fail
+- CodeQL security scan fails
+
+---
+
 ## Security Requirements
 
 ### Authorization - Frontend (UI)
@@ -114,118 +197,6 @@ export function usePublishedProjects() { ... }
 [HttpGet]
 [ProducesResponseType(typeof(IEnumerable<ProjectDto>), StatusCodes.Status200OK)]
 public async Task<IActionResult> GetPublishedProjects() { ... }
-```
-
-### Documentation Requirements
-
-- **Functions/Methods**: Purpose, parameters, return values, exceptions
-- **Classes/Interfaces**: Purpose and usage patterns
-- **Complex Logic**: Inline comments for non-obvious algorithms
-- **Public APIs**: Request/response examples
-- **Configuration**: All environment variables documented
-
----
-
-## Mobile Responsiveness
-
-All UI must be mobile-friendly using a **mobile-first** design approach:
-
-### Design Principles
-
-1. **Mobile-First CSS**: Write styles for mobile viewports first, then add complexity for larger screens
-2. **Touch-Friendly**: All interactive elements must be easily tappable (minimum 44x44px touch targets)
-3. **Responsive Layouts**: Use CSS Grid and Flexbox for fluid layouts that adapt to all screen sizes
-4. **No Horizontal Scroll**: Content must fit within viewport width on all devices
-
-### Tailwind CSS Breakpoints
-
-Use Tailwind's responsive prefixes consistently:
-
-```tsx
-// ✅ Correct: Mobile-first approach
-<div className="flex flex-col md:flex-row gap-4">
-  <aside className="w-full md:w-64 lg:w-80">
-    {/* Sidebar - full width on mobile, fixed width on desktop */}
-  </aside>
-  <main className="flex-1">
-    {/* Main content */}
-  </main>
-</div>
-
-// ✅ Correct: Responsive grid
-<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-  {items.map(item => <Card key={item.id} />)}
-</div>
-
-// ❌ Incorrect: Desktop-first (requires overrides for mobile)
-<div className="flex flex-row md:flex-col">
-  {/* This is harder to maintain */}
-</div>
-```
-
-### Admin Layout Requirements
-
-- **Collapsible Sidebar**: Sidebar must collapse to hamburger menu on mobile
-- **Bottom Navigation**: Consider bottom nav for frequently-used admin actions on mobile
-- **Responsive Tables**: Use horizontal scroll or card layout for data tables on mobile
-- **Touch-Optimized Forms**: Larger form inputs and adequate spacing for mobile
-
-```tsx
-// ✅ Correct: Responsive admin layout
-<div className="min-h-screen bg-background">
-  {/* Mobile header with hamburger */}
-  <header className="sticky top-0 z-50 flex items-center justify-between p-4 md:hidden">
-    <Logo />
-    <Button variant="ghost" onClick={toggleSidebar} aria-label="Toggle menu">
-      <Menu className="h-6 w-6" />
-    </Button>
-  </header>
-
-  <div className="flex">
-    {/* Sidebar - hidden on mobile, visible on desktop */}
-    <aside className={cn(
-      "fixed inset-y-0 left-0 z-40 w-64 transform bg-sidebar transition-transform md:relative md:translate-x-0",
-      isSidebarOpen ? "translate-x-0" : "-translate-x-full"
-    )}>
-      <Navigation />
-    </aside>
-
-    {/* Overlay for mobile sidebar */}
-    {isSidebarOpen && (
-      <div 
-        className="fixed inset-0 z-30 bg-black/50 md:hidden" 
-        onClick={() => setIsSidebarOpen(false)} 
-      />
-    )}
-
-    <main className="flex-1 p-4 md:p-6 lg:p-8">
-      {children}
-    </main>
-  </div>
-</div>
-```
-
-### Responsive Data Tables
-
-```tsx
-// ✅ Correct: Card layout on mobile, table on desktop
-<div className="hidden md:block">
-  <Table>{/* Full table for desktop */}</Table>
-</div>
-<div className="md:hidden space-y-4">
-  {items.map(item => (
-    <Card key={item.id}>
-      {/* Card layout for mobile */}
-    </Card>
-  ))}
-</div>
-
-// ✅ Alternative: Horizontal scroll for complex tables
-<div className="overflow-x-auto -mx-4 px-4">
-  <Table className="min-w-[600px]">
-    {/* Table with minimum width */}
-  </Table>
-</div>
 ```
 
 ### Requirements Checklist

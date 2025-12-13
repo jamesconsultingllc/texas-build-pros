@@ -1,4 +1,5 @@
 using Azure.Identity;
+using LegacyBuilders.Api.Middleware;
 using LegacyBuilders.Api.Services;
 using Microsoft.Azure.Cosmos;
 using Microsoft.Azure.Functions.Worker;
@@ -9,7 +10,12 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 
 var host = new HostBuilder()
-    .ConfigureFunctionsWebApplication()
+    .ConfigureFunctionsWebApplication(workerApp =>
+    {
+        // Register middleware in order - Authentication must run before Authorization
+        workerApp.UseMiddleware<AuthenticationMiddleware>();
+        workerApp.UseMiddleware<AuthorizationMiddleware>();
+    })
     .ConfigureServices(services =>
     {
         // Configure JSON serialization options for camelCase
