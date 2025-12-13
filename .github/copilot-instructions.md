@@ -499,6 +499,36 @@ This project uses **GitFlow** for branch management. **Always follow these rules
 3. **Only `release/*` and `hotfix/*` branches touch `main`**
 4. **Hotfixes must be merged to both `main` AND `develop`**
 
+### Merge Process (REQUIRED)
+
+**⚠️ NEVER merge branches directly via `git merge`** - Always create a Pull Request:
+
+1. **Push the branch** to origin
+2. **Create a PR** to `develop` using `gh pr create` or GitHub web UI
+3. **Wait for CI** checks to pass (unit tests, E2E tests, build, CodeQL)
+4. **Merge via GitHub** (not locally) - use squash merge for feature branches
+
+```bash
+# ✅ Correct: Push branch and create PR
+git push origin feature/my-feature
+gh pr create --base develop --head feature/my-feature \
+  --title "feat: description" --body "Details..."
+
+# Wait for CI to pass, then merge via GitHub UI or:
+gh pr merge --squash
+
+# ❌ Incorrect: Never do this
+git checkout develop
+git merge feature/my-feature  # WRONG - bypasses CI and branch protection
+git push origin develop
+```
+
+**Why PRs are required:**
+- CI pipeline validates the changes (tests, build, security scan)
+- Branch protection rules are enforced
+- Code review can happen before merge
+- Full audit trail of changes in GitHub
+
 ### Branch Commands
 
 ```bash
@@ -510,18 +540,12 @@ git checkout -b feature/my-feature
 # Or using git-flow CLI
 git flow feature start my-feature
 
-# Finish feature (merges to develop)
-git flow feature finish my-feature
+# Push and create PR (DO NOT merge locally)
+git push origin feature/my-feature
+gh pr create --base develop --head feature/my-feature
 
-# Start a release
-git flow release start 1.2.0
-
-# Finish release (merges to main + develop, creates tag)
-git flow release finish 1.2.0
-
-# Emergency hotfix from main
-git flow hotfix start 1.2.1
-git flow hotfix finish 1.2.1
+# After CI passes, merge via GitHub UI or CLI
+gh pr merge --squash
 ```
 
 ### When Creating Branches Programmatically
